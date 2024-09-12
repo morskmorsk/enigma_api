@@ -83,3 +83,52 @@ class CartItemViewSet(viewsets.ModelViewSet):
         # Associate the cart with the user
         cart, created = Cart.objects.get_or_create(user=self.request.user)
         serializer.save(cart=cart)
+
+# /////////////////////////////////////////////////////////////////////////////////////////////
+from rest_framework.permissions import IsAuthenticated
+from .models import Order, OrderItem
+from .serializers import OrderSerializer, OrderItemSerializer
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
+
+class OrderViewSet(viewsets.ModelViewSet):
+    queryset = Order.objects.all()
+    serializer_class = OrderSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Users can only see their own orders
+        return Order.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        # Automatically set the user to the logged-in user when creating an order
+        serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=['patch'])
+    def update_status(self, request, pk=None):
+        order = self.get_object()
+        status = request.data.get('status')
+        if status in dict(Order.STATUS_CHOICES):
+            order.status = status
+            order.save()
+            return Response({'status': 'Order status updated', 'new_status': order.status})
+        return Response({'error': 'Invalid status'}, status=400)
+
+
+class OrderItemViewSet(viewsets.ModelViewSet):
+    queryset = OrderItem.objects.all()
+    serializer_class = OrderItemSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Filter order items by the order's user
+        return OrderItem.objects.filter(order__user=self.request.user)
+
+    def perform_create(self, serializer):
+        # Ensure the user can only add items to their own orders
+        order = serializer.validated_data['order']
+        if order.user != self.request.user:
+            raise PermissionDenied("You cannot add items to someone else's order.")
+        serializer.save()
+        
