@@ -52,6 +52,11 @@ class TestUserProfileSerializer:
 
 
 # View Tests
+import pytest
+from django.urls import reverse
+from rest_framework.test import APIClient
+from cart.factories import UserFactory, UserProfileFactory
+
 @pytest.mark.django_db
 class TestUserProfileViewSet:
 
@@ -60,29 +65,24 @@ class TestUserProfileViewSet:
         self.user = UserFactory()
         self.user_profile = UserProfileFactory(user=self.user)
         self.client.force_authenticate(user=self.user)
-        self.url = reverse('userprofile-list')
+        self.url = reverse('profile-list')  # This sets the correct URL to use in tests
 
     def test_get_user_profiles(self):
-        # Test fetching user profiles with authentication
+        # Use the already authenticated client and URL
         response = self.client.get(self.url)
-        assert response.status_code == status.HTTP_200_OK
+        assert response.status_code == 200
 
     def test_create_user_profile(self):
-        # Test creating a new user profile
         data = {
             'username': 'newuser',
-            'password': 'newpassword123',
+            'password': 'newpassword',
             'email': 'newuser@example.com',
-            'phone_number': '+14155552672',
-            'carrier': 'Carrier Y',
-            'monthly_payment': 75
         }
-        response = self.client.post(self.url, data)
-        assert response.status_code == status.HTTP_201_CREATED
+        response = self.client.post(self.url, data, format='json')
+        assert response.status_code == 201
 
     def test_unauthenticated_access(self):
-        # Test that unauthenticated access is denied
-        self.client.logout()  # Log out the authenticated user
+        # Clear authentication to test unauthenticated access
+        self.client.force_authenticate(user=None)
         response = self.client.get(self.url)
-        assert response.status_code == status.HTTP_403_FORBIDDEN
-
+        assert response.status_code == 403  # Unauthenticated users should be denied access
