@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Cart, CartItem, Department, Location, Product, UserProfile
+from .models import Cart, CartItem, Department, Location, Order, OrderItem, Product, UserProfile
 
 
 @admin.register(UserProfile)
@@ -121,3 +121,64 @@ class CartItemAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.select_related('cart__user', 'content_type').prefetch_related('content_object')
+
+# /////////////////////////////////////////////////////////////////////////////////////////////
+# /////////////////////////////////////////////////////////////////////////////////////////////
+# # Order and OrderItem models
+# class Order(models.Model):
+#     STATUS_CHOICES = (
+#         ('pending', 'Pending'),
+#         ('processing', 'Processing'),
+#         ('shipped', 'Shipped'),
+#         ('delivered', 'Delivered'),
+#         ('cancelled', 'Cancelled'),
+#     )
+
+#     user = models.ForeignKey(User, on_delete=models.CASCADE)
+#     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+#     total = models.DecimalField(max_digits=10, decimal_places=2)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
+
+#     def __str__(self):
+#         return f"Order {self.id} - {self.user.username}"
+
+
+# class OrderItem(models.Model):
+#     order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE)
+#     product = models.ForeignKey(Product, on_delete=models.CASCADE)
+#     quantity = models.PositiveIntegerField()
+#     price = models.DecimalField(max_digits=10, decimal_places=2)  # Price at the time of purchase
+
+#     def __str__(self):
+#         return f"{self.quantity} x {self.product.name} in Order {self.order.id}"
+# /////////////////////////////////////////////////////////////////////////////////////////////
+
+
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    list_display = ['user', 'status', 'total', 'created_at', 'updated_at']
+    search_fields = ['user__username']
+    list_filter = ['created_at', 'status']
+    list_per_page = 10
+    date_hierarchy = 'created_at'
+    ordering = ['user__username']
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related('user')
+
+
+@admin.register(OrderItem)
+class OrderItemAdmin(admin.ModelAdmin):
+    list_display = ['order', 'product', 'quantity', 'price']
+    search_fields = ['order__user__username', 'product__name']
+    list_filter = ['order__created_at']
+    list_per_page = 10
+    date_hierarchy = 'order__created_at'
+    ordering = ['order__user__username', 'product__name']
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related('order__user', 'product')
+    
