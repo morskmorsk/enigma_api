@@ -22,7 +22,7 @@ class UserProfileFactory(factory.django.DjangoModelFactory):
 # /////////////////////////////////////////////////////////////////////////////////////////////
 
 from django.utils import timezone
-from .models import Location, Department, Product
+from .models import Device, Location, Department, Product
 
 
 # Location Factory
@@ -65,3 +65,17 @@ class ProductFactory(factory.django.DjangoModelFactory):
     cost = factory.Faker('pydecimal', left_digits=5, right_digits=2, positive=True)
     created_at = factory.LazyFunction(timezone.now)
     updated_at = factory.LazyFunction(timezone.now)
+
+
+# Device Factory
+class DeviceFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Device
+
+    owner = factory.SubFactory(UserFactory)
+    name = factory.Faker('word')
+    device_model = factory.Faker('word')
+    imei = factory.Faker('ean13')  # Generates a 13-digit barcode
+    serial_number = factory.Faker('ean13')
+    location = factory.SubFactory(LocationFactory)
+    department = factory.SubFactory(DepartmentFactory)

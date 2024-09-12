@@ -4,10 +4,11 @@ from . import views
 
 router = DefaultRouter()
 
-router.register('profiles', views.UserProfileViewSet)
-router.register(r'locations', views.LocationViewSet)
-router.register(r'departments', views.DepartmentViewSet)
-router.register(r'products', views.ProductViewSet)
+router.register('profiles', views.UserProfileViewSet, basename='profile')
+router.register(r'locations', views.LocationViewSet, basename='location')
+router.register(r'departments', views.DepartmentViewSet, basename='department')
+router.register(r'products', views.ProductViewSet, basename='product')
+router.register(r'devices', views.DeviceViewSet, basename='device')
 
 urlpatterns = [
     path('', include(router.urls)),  # Include the router-generated URLs

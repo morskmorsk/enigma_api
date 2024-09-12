@@ -29,3 +29,20 @@ class DepartmentViewSet(viewsets.ModelViewSet):
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
+
+# /////////////////////////////////////////////////////////////////////////////////////////////
+# device viewset
+from .models import Device
+from .serializers import DeviceSerializer
+
+class DeviceViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = DeviceSerializer
+
+    def get_queryset(self):
+        # Filter devices by the current authenticated user
+        return Device.objects.filter(owner=self.request.user)
+
+    def perform_create(self, serializer):
+        # Automatically set the device's owner to the authenticated user
+        serializer.save(owner=self.request.user)

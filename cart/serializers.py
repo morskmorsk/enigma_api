@@ -72,3 +72,30 @@ class ProductSerializer(serializers.ModelSerializer):
         if value < 0:
             raise serializers.ValidationError("Price must be a positive number.")
         return value
+
+# /////////////////////////////////////////////////////////////////////////////////////////////
+# device serializer
+from .models import Device
+
+class DeviceSerializer(serializers.ModelSerializer):
+    owner = serializers.ReadOnlyField(source='owner.username')  # Read-only as it's linked to the user
+
+    class Meta:
+        model = Device
+        fields = [
+            'id', 'owner', 'name', 'device_model', 'repair_price', 'description', 'image', 'barcode', 'imei', 
+            'location', 'department', 'serial_number', 'defect', 'notes', 'carrier', 
+            'estimated_value', 'passcode', 'created_at', 'updated_at'
+        ]
+
+    def validate_imei(self, value):
+        # Validate the uniqueness of the 'imei' field if it's provided
+        if value and Device.objects.filter(imei=value).exclude(id=self.instance.id if self.instance else None).exists():
+            raise serializers.ValidationError("A device with this IMEI already exists.")
+        return value
+
+    def validate_serial_number(self, value):
+        # Validate the uniqueness of the 'serial_number' field if it's provided
+        if value and Device.objects.filter(serial_number=value).exclude(id=self.instance.id if self.instance else None).exists():
+            raise serializers.ValidationError("A device with this serial number already exists.")
+        return value
