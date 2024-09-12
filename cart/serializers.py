@@ -40,3 +40,35 @@ class UserProfileSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         representation['username'] = instance.user.username  # Display the username in the output
         return representation
+    
+# /////////////////////////////////////////////////////////////////////////////////////////////
+from .models import Location, Department, Product
+
+# Location Serializer
+class LocationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Location
+        fields = ['id', 'name', 'description', 'created_at', 'updated_at']
+
+
+# Department Serializer
+class DepartmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Department
+        fields = ['id', 'name', 'description', 'is_taxable', 'created_at', 'updated_at']
+
+
+# Product Serializer
+class ProductSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'name', 'price', 'description', 'image', 'barcode', 'location', 'department',
+            'is_available', 'on_hand', 'cost', 'created_at', 'updated_at'
+        ]
+
+    def validate_price(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Price must be a positive number.")
+        return value

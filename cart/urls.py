@@ -5,7 +5,9 @@ from . import views
 router = DefaultRouter()
 
 router.register('profiles', views.UserProfileViewSet)
-
+router.register(r'locations', views.LocationViewSet)
+router.register(r'departments', views.DepartmentViewSet)
+router.register(r'products', views.ProductViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),  # Include the router-generated URLs
