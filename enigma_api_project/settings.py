@@ -41,6 +41,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'cart',
     'rest_framework',
+    'debug_toolbar',  # Add this line
+    'drf_spectacular',  # Add this line
 ]
 
 MIDDLEWARE = [

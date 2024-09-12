@@ -5,6 +5,7 @@ from cart.factories import UserFactory, UserProfileFactory
 # Mark these tests as requiring database access
 pytestmark = pytest.mark.django_db
 
+# tests for the UserProfile model /////////////////////////////////////////////////////////////
 
 def test_userprofile_creation():
     """Test the creation of a UserProfile object using the factory"""
