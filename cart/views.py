@@ -46,3 +46,40 @@ class DeviceViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         # Automatically set the device's owner to the authenticated user
         serializer.save(owner=self.request.user)
+
+# /////////////////////////////////////////////////////////////////////////////////////////////
+from rest_framework.response import Response
+from rest_framework.decorators import action
+from .models import Cart, CartItem
+from .serializers import CartSerializer, CartItemSerializer
+from rest_framework.permissions import IsAuthenticated
+
+class CartViewSet(viewsets.ModelViewSet):
+    queryset = Cart.objects.all()
+    serializer_class = CartSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Only allow users to see their own carts
+        return Cart.objects.filter(user=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def my_cart(self, request):
+        cart, created = Cart.objects.get_or_create(user=request.user)
+        serializer = self.get_serializer(cart)
+        return Response(serializer.data)
+
+class CartItemViewSet(viewsets.ModelViewSet):
+    queryset = CartItem.objects.all()
+    serializer_class = CartItemSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Filter items by the cart of the current user
+        cart = Cart.objects.get(user=self.request.user)
+        return CartItem.objects.filter(cart=cart)
+    
+    def perform_create(self, serializer):
+        # Associate the cart with the user
+        cart, created = Cart.objects.get_or_create(user=self.request.user)
+        serializer.save(cart=cart)

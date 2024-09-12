@@ -99,3 +99,32 @@ class DeviceSerializer(serializers.ModelSerializer):
         if value and Device.objects.filter(serial_number=value).exclude(id=self.instance.id if self.instance else None).exists():
             raise serializers.ValidationError("A device with this serial number already exists.")
         return value
+
+# /////////////////////////////////////////////////////////////////////////////////////////////
+# cart/serializers.py
+from .models import Cart, CartItem
+
+class CartItemSerializer(serializers.ModelSerializer):
+    content_object = serializers.SerializerMethodField()  # To display the related object (Product or Device)
+    
+    class Meta:
+        model = CartItem
+        fields = ['id', 'cart', 'content_type', 'object_id', 'content_object', 'quantity', 'override_price', 'effective_price', 'total_price', 'created_at', 'updated_at']
+    
+    def get_content_object(self, obj):
+        return str(obj.content_object)  # Represent the related object (e.g., Product or Device)
+    
+    def create(self, validated_data):
+        content_type = validated_data.pop('content_type')
+        object_id = validated_data.pop('object_id')
+        content_object = content_type.get_object_for_this_type(id=object_id)
+        validated_data['content_object'] = content_object
+        return super().create(validated_data)
+
+class CartSerializer(serializers.ModelSerializer):
+    items = CartItemSerializer(many=True, read_only=True)
+    total = serializers.ReadOnlyField()
+
+    class Meta:
+        model = Cart
+        fields = ['id', 'user', 'items', 'total', 'created_at', 'updated_at']

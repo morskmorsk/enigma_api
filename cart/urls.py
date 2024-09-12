@@ -9,6 +9,8 @@ router.register(r'locations', views.LocationViewSet, basename='location')
 router.register(r'departments', views.DepartmentViewSet, basename='department')
 router.register(r'products', views.ProductViewSet, basename='product')
 router.register(r'devices', views.DeviceViewSet, basename='device')
+router.register(r'carts', views.CartViewSet, basename='cart')
+router.register(r'cart-items', views.CartItemViewSet, basename='cart-item')
 
 urlpatterns = [
     path('', include(router.urls)),  # Include the router-generated URLs
