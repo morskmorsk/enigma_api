@@ -1,58 +1,6 @@
 from django.contrib import admin
-from .models import Department, Location, Product, UserProfile
+from .models import Cart, CartItem, Department, Location, Product, UserProfile
 
-
-# # location model
-# class Location(models.Model):
-#     name = models.CharField(max_length=200)
-#     description = models.TextField(blank=True)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(auto_now=True)
-
-#     def __str__(self):
-#         return self.name
-
-# #  department model
-# class Department(models.Model):
-#     name = models.CharField(max_length=200)
-#     description = models.TextField(blank=True)
-#     is_taxable = models.BooleanField(default=True)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(auto_now=True)
-
-#     def __str__(self):
-#         return self.name
-
-# #  product model
-# class Product(models.Model):
-#     name = models.CharField(max_length=200)
-#     price = models.DecimalField(max_digits=10, decimal_places=2)
-#     description = models.TextField(blank=True)
-#     image = models.ImageField(upload_to='products/', blank=True)
-#     barcode = models.CharField(max_length=100, blank=True, null=True, unique=True)
-#     location = models.ForeignKey(Location, on_delete=models.CASCADE)
-#     department = models.ForeignKey(Department, on_delete=models.CASCADE)
-#     is_available = models.BooleanField(default=True)
-#     on_hand = models.IntegerField(default=0)
-#     cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(auto_now=True)
-
-#     def __str__(self):
-#         return self.name
-
-#     def clean(self):
-#             super().clean()
-#             # Validate the image file type and size
-#             if self.image:
-#                 if not self.image.name.lower().endswith(('.jpg', '.jpeg', '.png', '.tiff', '.webp')):
-#                     raise ValidationError('Only .jpg, .jpeg, .tiff, .webp and .png files are allowed.')
-#                 if self.image.size > 5 * 1024 * 1024:  # Limit size to 5 MB
-#                     raise ValidationError('The image file size cannot exceed 5 MB.')
-
-#     def update_inventory(self, inventory_quantity):
-#         self.on_hand = inventory_quantity
-#         self.save()
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
@@ -99,3 +47,77 @@ class ProductAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.select_related('location', 'department')
+
+
+# /////////////////////////////////////////////////////////////////////////////////////////////
+
+# Cart and CartItem models
+# class Cart(models.Model):
+#     user = models.OneToOneField(User, on_delete=models.CASCADE)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
+
+#     def __str__(self):
+#         return f"Cart for {self.user.username}"
+
+#     @property
+#     def total(self):
+#         return sum(item.total_price for item in self.items.all())
+
+
+# class CartItem(models.Model):
+#     cart = models.ForeignKey(Cart, related_name='items', on_delete=models.CASCADE)
+
+#     # Generic ForeignKey to allow Product or Device
+#     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+#     object_id = models.PositiveIntegerField()
+#     content_object = GenericForeignKey('content_type', 'object_id')
+
+#     quantity = models.PositiveIntegerField(default=1)
+#     override_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+#     effective_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
+
+#     def __str__(self):
+#         return f"{self.quantity} x {self.content_object}"
+
+#     @property
+#     def effective_price(self):
+#         if hasattr(self.content_object, 'price'):
+#             return self.override_price if self.override_price is not None else self.content_object.price
+#         elif hasattr(self.content_object, 'repair_price'):
+#             return self.override_price if self.override_price is not None else self.content_object.repair_price
+#         return Decimal('0.00')
+
+#     @property
+#     def total_price(self):
+#         return self.effective_price * self.quantity
+
+
+@admin.register(Cart)
+class CartAdmin(admin.ModelAdmin):
+    list_display = ['user', 'created_at', 'updated_at']
+    search_fields = ['user__username']
+    list_filter = ['created_at']
+    list_per_page = 10
+    date_hierarchy = 'created_at'
+    ordering = ['user__username']
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related('user')
+
+
+@admin.register(CartItem)
+class CartItemAdmin(admin.ModelAdmin):
+    list_display = ['cart', 'content_object', 'quantity', 'effective_price', 'total_price', 'created_at', 'updated_at']
+    search_fields = ['cart__user__username', 'content_object__name']
+    list_filter = ['created_at']
+    list_per_page = 10
+    date_hierarchy = 'created_at'
+    ordering = ['cart__user__username', 'content_object__name']
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related('cart__user', 'content_type').prefetch_related('content_object')
