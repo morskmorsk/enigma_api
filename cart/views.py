@@ -122,13 +122,11 @@ class OrderItemViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Filter order items by the order's user
         return OrderItem.objects.filter(order__user=self.request.user)
 
     def perform_create(self, serializer):
-        # Ensure the user can only add items to their own orders
-        order = serializer.validated_data['order']
+        order = serializer.validated_data['order']  # Ensure we get the correct order object
         if order.user != self.request.user:
             raise PermissionDenied("You cannot add items to someone else's order.")
         serializer.save()
-        
+                

@@ -135,11 +135,12 @@ from .models import Order, OrderItem
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.ReadOnlyField(source='product.name')
+    order = serializers.PrimaryKeyRelatedField(queryset=Order.objects.all())  # Ensure order is provided
 
     class Meta:
         model = OrderItem
-        fields = ['id', 'product', 'product_name', 'quantity', 'price']
-
+        fields = ['id', 'order', 'product', 'product_name', 'quantity', 'price']
+        
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     user = serializers.ReadOnlyField(source='user.username')
