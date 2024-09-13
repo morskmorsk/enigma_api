@@ -66,21 +66,22 @@ class CartAdmin(admin.ModelAdmin):
 
 @admin.register(CartItem)
 class CartItemAdmin(admin.ModelAdmin):
-    list_display = ['cart', 'get_content_object_name', 'quantity', 'effective_price', 'total_price', 'created_at', 'updated_at']
-    search_fields = ['cart__user__username']
+    list_display = ['cart', 'get_item_name', 'quantity', 'effective_price', 'total_price', 'created_at', 'updated_at']
+    search_fields = [
+        'cart__user__username',
+        'product__name',
+        'device__name'
+    ]
     list_filter = ['created_at']
-    list_per_page = 10
-    date_hierarchy = 'created_at'
-    ordering = ['cart__user__username']
+    ordering = ['cart__user__username', 'product__name', 'device__name']
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        return qs.select_related('cart__user', 'content_type').prefetch_related('content_object')
+        return qs.select_related('cart__user', 'product', 'device')
 
-    def get_content_object_name(self, obj):
-        return str(obj.content_object)
-    get_content_object_name.short_description = 'Item'
-            
+    def get_item_name(self, obj):
+        return obj.get_item_name()
+    get_item_name.short_description = 'Item'            
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
