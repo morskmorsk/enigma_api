@@ -248,19 +248,23 @@ class Cart(models.Model):
         return sum(item.total_price for item in self.items.all())
 
 class CartItem(models.Model):
-    """
-    Represents an item in a user's cart, which can be a Product or a Device.
-    Uses a GenericForeignKey to allow flexibility in the type of item.
-    """
     cart = models.ForeignKey(
         Cart,
         related_name='items',
         on_delete=models.CASCADE
     )
-    # Generic ForeignKey to allow linking to Product or Device
-    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    object_id = models.PositiveIntegerField()
-    content_object = GenericForeignKey('content_type', 'object_id')
+    product = models.ForeignKey(
+        Product,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE
+    )
+    device = models.ForeignKey(
+        Device,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE
+    )
     quantity = models.PositiveIntegerField(default=1)
     override_price = models.DecimalField(
         max_digits=10,
@@ -268,32 +272,42 @@ class CartItem(models.Model):
         null=True,
         blank=True
     )
-    # Note: 'effective_price' is defined as a property below
-    # Storing 'effective_price' in the database may not be necessary
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
+    def clean(self):
+        super().clean()
+        if not self.product and not self.device:
+            raise ValidationError('Either product or device must be set.')
+        if self.product and self.device:
+            raise ValidationError('Only one of product or device can be set.')
+
     def __str__(self):
-        return f"{self.quantity} x {self.content_object}"
+        return f"{self.quantity} x {self.get_item_name()}"
+
+    def get_item_name(self):
+        if self.product:
+            return self.product.name
+        elif self.device:
+            return self.device.name
+        return 'Unknown Item'
 
     @property
     def effective_price(self):
-        """
-        Determines the effective price of the item, considering overrides.
-        """
-        if hasattr(self.content_object, 'price'):
-            return self.override_price if self.override_price is not None else self.content_object.price
-        elif hasattr(self.content_object, 'repair_price'):
-            return self.override_price if self.override_price is not None else self.content_object.repair_price
-        return Decimal('0.00')
+        base_price = self.override_price
+        if base_price is None:
+            if self.product:
+                base_price = self.product.price
+            elif self.device:
+                base_price = self.device.repair_price
+            else:
+                base_price = Decimal('0.00')
+        return base_price
 
     @property
     def total_price(self):
-        """
-        Calculates the total price for this cart item.
-        """
         return self.effective_price * self.quantity
-
+    
 # =============================================================================
 # Order and OrderItem Models
 # =============================================================================
