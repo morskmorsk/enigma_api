@@ -239,6 +239,7 @@ class Cart(models.Model):
         """
         return sum(item.total_price for item in self.items.all())
 
+
 class CartItem(models.Model):
     cart = models.ForeignKey(
         Cart,
@@ -327,6 +328,7 @@ class Order(models.Model):
     
     def __str__(self):
         return f"Order {self.id} - {self.user.username}"
+
 
 class OrderItem(models.Model):
     """
