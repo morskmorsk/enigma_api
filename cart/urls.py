@@ -1,6 +1,7 @@
 from rest_framework.routers import DefaultRouter
 from django.urls import path, include
 from . import views
+from rest_framework.authtoken.views import obtain_auth_token
 
 router = DefaultRouter()
 
@@ -17,4 +18,6 @@ router.register(r'order-items', views.OrderItemViewSet, basename='orderitem')
 urlpatterns = [
     path('', include(router.urls)),  # Include the router-generated URLs
     path('__debug__/', include('debug_toolbar.urls')),  # Add this line
+    path('api-token-auth/', obtain_auth_token),
+
 ]
