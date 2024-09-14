@@ -24,6 +24,7 @@ class UserFactory(factory.django.DjangoModelFactory):
     """
     class Meta:
         model = User
+        skip_postgeneration_save = True  # Skip the extra save call after post-generation
         django_get_or_create = ('username',)
 
     username = factory.Faker('user_name')
