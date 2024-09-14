@@ -4,15 +4,15 @@ from . import views
 
 router = DefaultRouter()
 
-router.register('profiles', views.UserProfileViewSet, basename='profile')
+router.register(r'userprofiles', views.UserProfileViewSet, basename='userprofile')
 router.register(r'locations', views.LocationViewSet, basename='location')
 router.register(r'departments', views.DepartmentViewSet, basename='department')
 router.register(r'products', views.ProductViewSet, basename='product')
 router.register(r'devices', views.DeviceViewSet, basename='device')
 router.register(r'carts', views.CartViewSet, basename='cart')
-router.register(r'cart-items', views.CartItemViewSet, basename='cart-item')
+router.register(r'cart-items', views.CartItemViewSet, basename='cartitem')
 router.register(r'orders', views.OrderViewSet, basename='order')
-router.register(r'order-items', views.OrderItemViewSet, basename='order-item')
+router.register(r'order-items', views.OrderItemViewSet, basename='orderitem')
 
 urlpatterns = [
     path('', include(router.urls)),  # Include the router-generated URLs

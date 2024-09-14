@@ -37,3 +37,52 @@ class TestURLPatterns:
             response = self.client.get(media_url)
             # If no file exists, assert 404; otherwise, it should return 200
             assert response.status_code in [status.HTTP_200_OK, status.HTTP_404_NOT_FOUND]
+
+# ================================================================================================
+# tests/test_urls.py
+
+import pytest
+from rest_framework import status
+from rest_framework.test import APIClient
+from django.urls import reverse
+
+# =============================================================================
+# Tests for URLs
+# =============================================================================
+
+@pytest.mark.django_db
+class TestURLs:
+    """
+    Test suite for API endpoints.
+    """
+
+    def setup_method(self):
+        """
+        Initialize the APIClient for the tests.
+        """
+        self.client = APIClient()
+
+    def test_location_url(self):
+        """
+        Test that the location list URL returns a 200 OK status.
+        """
+        url = reverse('location-list')
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_department_url(self):
+        """
+        Test that the department list URL returns a 200 OK status.
+        """
+        url = reverse('department-list')
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_product_url(self):
+        """
+        Test that the product list URL returns a 200 OK status.
+        """
+        url = reverse('product-list')
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+# ================================================================================================

@@ -4,8 +4,6 @@ from decimal import Decimal
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
-from django.contrib.contenttypes.fields import GenericForeignKey
-from django.contrib.contenttypes.models import ContentType
 from django.db import models
 
 # =============================================================================
@@ -80,7 +78,7 @@ class Product(models.Model):
     name = models.CharField(max_length=200)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     description = models.TextField(blank=True)
-    image = models.ImageField(upload_to='products/', blank=True)
+    image = models.ImageField(upload_to='products/', blank=True, null=True)
     barcode = models.CharField(
         max_length=100,
         blank=True,
@@ -108,11 +106,11 @@ class Product(models.Model):
         Validates the image file type and size.
         """
         super().clean()
-        if self.image:
+        if self.image and hasattr(self.image.file, 'size'):
             valid_extensions = ('.jpg', '.jpeg', '.png', '.tiff', '.webp')
             if not self.image.name.lower().endswith(valid_extensions):
-                raise ValidationError('Only .jpg, .jpeg, .tiff, .webp and .png files are allowed.')
-            if self.image.size > 5 * 1024 * 1024:  # Limit size to 5 MB
+                raise ValidationError('Only .jpg, .jpeg, .tiff, .webp, and .png files are allowed.')
+            if self.image.file.size > 5 * 1024 * 1024:  # Limit size to 5 MB
                 raise ValidationError('The image file size cannot exceed 5 MB.')
 
     def update_inventory(self, inventory_quantity):
@@ -130,11 +128,7 @@ class Device(models.Model):
     """
     Represents a device owned by a user, which can be repaired or serviced.
     """
-    owner = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        default=None
-    )
+    owner = models.ForeignKey(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
     device_model = models.CharField(max_length=255, blank=True, null=True)
     repair_price = models.DecimalField(
@@ -157,7 +151,6 @@ class Device(models.Model):
     )
     imei = models.CharField(
         max_length=15,
-        unique=True,
         blank=True,
         null=True
     )
@@ -175,7 +168,6 @@ class Device(models.Model):
     )
     serial_number = models.CharField(
         max_length=255,
-        unique=True,
         blank=True,
         null=True
     )
@@ -192,32 +184,32 @@ class Device(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['owner', 'imei'], name='unique_imei_per_owner'),
+            models.UniqueConstraint(fields=['owner', 'serial_number'], name='unique_serial_number_per_owner'),
+        ]
+
     def __str__(self):
         return f"{self.name} ({self.device_model}) - Owned by {self.owner.username}"
 
+# =============================================================================
     def clean(self):
-        """
-        Custom validation to ensure:
-        - Image file type and size are valid.
-        - 'imei' and 'serial_number' are unique when provided.
-        """
         super().clean()
         # Validate image
-        if self.image:
+        if self.image and hasattr(self.image.file, 'size'):
             valid_extensions = ('.jpg', '.jpeg', '.png', '.tiff', '.webp')
             if not self.image.name.lower().endswith(valid_extensions):
-                raise ValidationError('Only .jpg, .jpeg, .tiff, .webp and .png files are allowed.')
-            if self.image.size > 5 * 1024 * 1024:
+                raise ValidationError('Only .jpg, .jpeg, .tiff, .webp, and .png files are allowed.')
+            if self.image.file.size > 5 * 1024 * 1024:
                 raise ValidationError('The image file size cannot exceed 5 MB.')
-        # Validate IMEI uniqueness
-        if self.imei:
-            if Device.objects.filter(imei=self.imei).exclude(id=self.id).exists():
-                raise ValidationError("A device with this IMEI already exists.")
-        # Validate Serial Number uniqueness
-        if self.serial_number:
-            if Device.objects.filter(serial_number=self.serial_number).exclude(id=self.id).exists():
-                raise ValidationError("A device with this serial number already exists.")
-    
+        # Validate IMEI uniqueness per owner
+        if self.imei and Device.objects.filter(imei=self.imei, owner=self.owner).exclude(pk=self.pk).exists():
+            raise ValidationError({'imei': 'Device with this IMEI already exists.'})
+        # Validate Serial Number uniqueness per owner
+        if self.serial_number and Device.objects.filter(serial_number=self.serial_number, owner=self.owner).exclude(pk=self.pk).exists():
+            raise ValidationError({'serial_number': 'Device with this serial number already exists.'})
+# =============================================================================
     def save(self, *args, **kwargs):
         """
         Overridden save method to perform full clean before saving.
@@ -299,7 +291,7 @@ class CartItem(models.Model):
             if self.product:
                 base_price = self.product.price
             elif self.device:
-                base_price = self.device.repair_price
+                base_price = self.device.repair_price or Decimal('0.00')
             else:
                 base_price = Decimal('0.00')
         return base_price
@@ -307,7 +299,7 @@ class CartItem(models.Model):
     @property
     def total_price(self):
         return self.effective_price * self.quantity
-    
+
 # =============================================================================
 # Order and OrderItem Models
 # =============================================================================
@@ -345,12 +337,37 @@ class OrderItem(models.Model):
         related_name='items',
         on_delete=models.CASCADE
     )
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    product = models.ForeignKey(
+        Product,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE
+    )
+    device = models.ForeignKey(
+        Device,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE
+    )
     quantity = models.PositiveIntegerField()
     price = models.DecimalField(
         max_digits=10,
         decimal_places=2
     )  # Price at the time of purchase
 
+    def clean(self):
+        super().clean()
+        if not self.product and not self.device:
+            raise ValidationError('Either product or device must be set.')
+        if self.product and self.device:
+            raise ValidationError('Only one of product or device can be set.')
+
     def __str__(self):
-        return f"{self.quantity} x {self.product.name} in Order {self.order.id}"
+        return f"{self.quantity} x {self.get_item_name()} in Order {self.order.id}"
+
+    def get_item_name(self):
+        if self.product:
+            return self.product.name
+        elif self.device:
+            return self.device.name
+        return 'Unknown Item'

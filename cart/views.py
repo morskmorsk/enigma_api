@@ -1,112 +1,177 @@
-from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated
-from .models import UserProfile
-from .serializers import UserProfileSerializer
+# views.py
 
+from rest_framework import viewsets, status
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.response import Response
+from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
+
+from .models import (
+    UserProfile, Location, Department, Product,
+    Device, Cart, CartItem, Order, OrderItem
+)
+from .serializers import (
+    UserProfileSerializer, LocationSerializer, DepartmentSerializer,
+    ProductSerializer, DeviceSerializer, CartSerializer, CartItemSerializer,
+    OrderSerializer, OrderItemSerializer
+)
+
+# =============================================================================
+# UserProfile ViewSet
+# =============================================================================
 
 class UserProfileViewSet(viewsets.ModelViewSet):
-    queryset = UserProfile.objects.all()
+    """
+    ViewSet for managing user profiles.
+    """
     serializer_class = UserProfileSerializer
-    permission_classes = [IsAuthenticated]
 
-# /////////////////////////////////////////////////////////////////////////////////////////////
-from .models import Location, Department, Product
-from .serializers import LocationSerializer, DepartmentSerializer, ProductSerializer
+    def get_permissions(self):
+        if self.action == 'create':
+            return [AllowAny()]
+        return [IsAuthenticated()]
 
-# Location ViewSet
+    def get_queryset(self):
+        """
+        Users can only see their own profile.
+        """
+        return UserProfile.objects.filter(user=self.request.user)
+        
+    def destroy(self, request, *args, **kwargs):
+        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+# =============================================================================
+# Location, Department, and Product ViewSets
+# =============================================================================
+
 class LocationViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing locations.
+    """
     queryset = Location.objects.all()
     serializer_class = LocationSerializer
 
-
-# Department ViewSet
 class DepartmentViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing departments.
+    """
     queryset = Department.objects.all()
     serializer_class = DepartmentSerializer
 
-
-# Product ViewSet
 class ProductViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing products.
+    """
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
 
-# /////////////////////////////////////////////////////////////////////////////////////////////
-# device viewset
-from .models import Device
-from .serializers import DeviceSerializer
+# =============================================================================
+# Device ViewSet
+# =============================================================================
 
 class DeviceViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    """
+    ViewSet for managing devices owned by users.
+    """
     serializer_class = DeviceSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Filter devices by the current authenticated user
+        """
+        Returns devices owned by the authenticated user.
+        """
         return Device.objects.filter(owner=self.request.user)
 
     def perform_create(self, serializer):
-        # Automatically set the device's owner to the authenticated user
+        """
+        Automatically sets the device's owner to the authenticated user.
+        """
         serializer.save(owner=self.request.user)
 
-# /////////////////////////////////////////////////////////////////////////////////////////////
-from rest_framework.response import Response
-from rest_framework.decorators import action
-from .models import Cart, CartItem
-from .serializers import CartSerializer, CartItemSerializer
-from rest_framework.permissions import IsAuthenticated
+# =============================================================================
+# Cart and CartItem ViewSets
+# =============================================================================
 
 class CartViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing user carts.
+    """
     queryset = Cart.objects.all()
     serializer_class = CartSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Only allow users to see their own carts
+        """
+        Users can only see their own cart.
+        """
         return Cart.objects.filter(user=self.request.user)
 
     @action(detail=False, methods=['get'])
     def my_cart(self, request):
+        """
+        Custom action to retrieve the authenticated user's cart.
+        """
         cart, created = Cart.objects.get_or_create(user=request.user)
         serializer = self.get_serializer(cart)
         return Response(serializer.data)
 
 class CartItemViewSet(viewsets.ModelViewSet):
-    queryset = CartItem.objects.all()
+    """
+    ViewSet for managing items in a user's cart.
+    """
     serializer_class = CartItemSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Filter items by the cart of the current user
-        cart = Cart.objects.get(user=self.request.user)
+        """
+        Retrieves cart items belonging to the authenticated user's cart.
+        """
+        cart, created = Cart.objects.get_or_create(user=self.request.user)
         return CartItem.objects.filter(cart=cart)
-    
+
     def perform_create(self, serializer):
-        # Associate the cart with the user
+        """
+        Associates the cart item with the authenticated user's cart.
+        """
         cart, created = Cart.objects.get_or_create(user=self.request.user)
         serializer.save(cart=cart)
 
-# /////////////////////////////////////////////////////////////////////////////////////////////
-from rest_framework.permissions import IsAuthenticated
-from .models import Order, OrderItem
-from .serializers import OrderSerializer, OrderItemSerializer
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.exceptions import PermissionDenied
+    def perform_update(self, serializer):
+        """
+        Ensures the cart item belongs to the authenticated user's cart when updating.
+        """
+        cart, created = Cart.objects.get_or_create(user=self.request.user)
+        serializer.save(cart=cart)
+
+# =============================================================================
+# Order and OrderItem ViewSets
+# =============================================================================
 
 class OrderViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing orders.
+    """
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Users can only see their own orders
+        """
+        Users can only see their own orders.
+        """
         return Order.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
-        # Automatically set the user to the logged-in user when creating an order
+        """
+        Automatically sets the user to the authenticated user when creating an order.
+        """
         serializer.save(user=self.request.user)
 
     @action(detail=True, methods=['patch'])
     def update_status(self, request, pk=None):
+        """
+        Custom action to update the status of an order.
+        """
         order = self.get_object()
         status = request.data.get('status')
         if status in dict(Order.STATUS_CHOICES):
@@ -115,18 +180,24 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response({'status': 'Order status updated', 'new_status': order.status})
         return Response({'error': 'Invalid status'}, status=400)
 
-
 class OrderItemViewSet(viewsets.ModelViewSet):
-    queryset = OrderItem.objects.all()
+    """
+    ViewSet for managing items within an order.
+    """
     serializer_class = OrderItemSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        """
+        Users can only see order items from their own orders.
+        """
         return OrderItem.objects.filter(order__user=self.request.user)
 
     def perform_create(self, serializer):
-        order = serializer.validated_data['order']  # Ensure we get the correct order object
+        """
+        Ensures that the order item is added to the authenticated user's order.
+        """
+        order = serializer.validated_data['order']
         if order.user != self.request.user:
             raise PermissionDenied("You cannot add items to someone else's order.")
         serializer.save()
-                
