@@ -15,6 +15,21 @@ from .serializers import (
     ProductSerializer, DeviceSerializer, CartSerializer, CartItemSerializer,
     OrderSerializer, OrderItemSerializer
 )
+from django.contrib.auth.models import User
+
+# =============================================================================
+
+class SignupViewSet(viewsets.ViewSet):
+    """
+    ViewSet for user signup.
+    """
+    permission_classes = [AllowAny]
+
+    def create(self, request):
+        serializer = UserProfileSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 # =============================================================================
 # UserProfile ViewSet

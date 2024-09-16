@@ -14,6 +14,8 @@ router.register(r'carts', views.CartViewSet, basename='cart')
 router.register(r'cart-items', views.CartItemViewSet, basename='cartitem')
 router.register(r'orders', views.OrderViewSet, basename='order')
 router.register(r'order-items', views.OrderItemViewSet, basename='orderitem')
+router.register(r'signup', views.SignupViewSet, basename='signup')
+
 
 urlpatterns = [
     path('', include(router.urls)),  # Include the router-generated URLs
