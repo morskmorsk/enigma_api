@@ -16,10 +16,8 @@ router.register(r'orders', views.OrderViewSet, basename='order')
 router.register(r'order-items', views.OrderItemViewSet, basename='orderitem')
 router.register(r'signup', views.SignupViewSet, basename='signup')
 
-
 urlpatterns = [
     path('', include(router.urls)),  # Include the router-generated URLs
     path('__debug__/', include('debug_toolbar.urls')),  # Add this line
     path('api-token-auth/', obtain_auth_token),
-
 ]
