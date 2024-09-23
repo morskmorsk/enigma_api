@@ -146,6 +146,8 @@ REST_FRAMEWORK = {
     ],
 }
 
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:4200',
-]
+# CORS_ALLOWED_ORIGINS = [
+#     # 'http://localhost:4200',
+# ]
+# Allow all origins temporarily
+CORS_ALLOW_ALL_ORIGINS = True
