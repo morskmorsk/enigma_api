@@ -50,8 +50,30 @@ class UserProfileViewSet(viewsets.ModelViewSet):
         """
         Users can only see their own profile.
         """
-        return UserProfile.objects.filter(user=self.request.user)
-        
+        # return UserProfile.objects.filter(user=self.request.user)
+        """
+        Admins can see all profiles, regular users can only see their own profile.
+        """
+        if self.request.user.is_staff:
+            return UserProfile.objects.all()  # Admins can see all profiles
+        return UserProfile.objects.filter(user=self.request.user)  # Regular users see only their own
+
+    def update(self, request, *args, **kwargs):
+        user_profile = self.get_object()
+        user = user_profile.user
+
+        # Update the User model fields
+        user.email = request.data.get('user_email', user.email)
+        user.save()
+
+        # Update the UserProfile fields
+        user_profile.phone_number = request.data.get('phone_number', user_profile.phone_number)
+        user_profile.carrier = request.data.get('carrier', user_profile.carrier)
+        user_profile.monthly_payment = request.data.get('monthly_payment', user_profile.monthly_payment)
+        user_profile.save()
+
+        return Response({'status': 'profile updated successfully'})
+
     def destroy(self, request, *args, **kwargs):
         return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
