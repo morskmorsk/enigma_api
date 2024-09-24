@@ -1,5 +1,4 @@
 # serializers.py
-
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import (
@@ -9,36 +8,6 @@ from .models import (
 
 # =============================================================================
 # UserProfile Serializer
-# =============================================================================
-
-# class UserProfileSerializer(serializers.ModelSerializer):
-#     username = serializers.CharField(write_only=True)
-#     password = serializers.CharField(write_only=True, required=True)
-#     email = serializers.EmailField(required=False)
-#     user = serializers.PrimaryKeyRelatedField(read_only=True)
-
-#     class Meta:
-#         model = UserProfile
-#         fields = ['username', 'password', 'email', 'phone_number', 'carrier', 'monthly_payment', 'user']
-
-#     def validate_username(self, value):
-#         if User.objects.filter(username=value).exists():
-#             raise serializers.ValidationError('A user with that username already exists.')
-#         return value
-
-#     def validate_monthly_payment(self, value):
-#         if value is not None and value < 0:
-#             raise serializers.ValidationError('Monthly payment must be a positive value.')
-#         return value
-
-#     def create(self, validated_data):
-#         username = validated_data.pop('username')
-#         password = validated_data.pop('password')
-#         email = validated_data.pop('email', '')
-#         user = User.objects.create_user(username=username, email=email, password=password)
-#         user_profile = UserProfile.objects.create(user=user, **validated_data)
-#         return user_profile
-
 # =============================================================================
 
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -140,7 +109,6 @@ class DeviceSerializer(serializers.ModelSerializer):
         if Device.objects.filter(serial_number=value, owner=user).exists():
             raise serializers.ValidationError('Device with this serial number already exists.')
         return value
-
                 
 # =============================================================================
 # Cart and CartItem Serializers
