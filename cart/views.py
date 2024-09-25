@@ -152,6 +152,11 @@ class CartViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(cart)
         return Response(serializer.data)
 
+# =============================================================================
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+
+@method_decorator(csrf_exempt, name='dispatch')
 class CartItemViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing items in a user's cart.
