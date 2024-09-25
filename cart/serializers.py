@@ -155,7 +155,7 @@ class CartItemSerializer(serializers.ModelSerializer):
             'total_price', 'created_at', 'updated_at'
         ]
         extra_kwargs = {
-            'cart': {'read_only': True},
+            'cart': {'read_only': True},  # Ensure cart is read-only and automatically set in perform_create
             'override_price': {'required': False, 'allow_null': True},
         }
 

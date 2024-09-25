@@ -1,5 +1,4 @@
 # views.py
-
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
@@ -16,6 +15,8 @@ from .serializers import (
     OrderSerializer, OrderItemSerializer
 )
 from django.contrib.auth.models import User
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 
 # =============================================================================
 
@@ -119,7 +120,17 @@ class DeviceViewSet(viewsets.ModelViewSet):
         """
         return Device.objects.filter(owner=self.request.user)
 
+    
     def perform_create(self, serializer):
+        # Ensure that each user has their own cart when adding a product
+        cart, created = Cart.objects.get_or_create(user=self.request.user)
+        
+        # Ensure the CartItem is associated with the correct cart
+        cart_item = serializer.save()
+        cart_item.cart = cart  # Set the cart before saving the CartItem
+        cart_item.save()
+
+
         """
         Automatically sets the device's owner to the authenticated user.
         """
@@ -153,11 +164,14 @@ class CartViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 # =============================================================================
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 
 @method_decorator(csrf_exempt, name='dispatch')
 class CartItemViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]  # Ensure token-based auth
+
+    def get_queryset(self):
+        return CartItem.objects.filter(cart__user=self.request.user)  # Ensure user-specific cart items
+
     """
     ViewSet for managing items in a user's cart.
     """
@@ -171,24 +185,19 @@ class CartItemViewSet(viewsets.ModelViewSet):
         cart, created = Cart.objects.get_or_create(user=self.request.user)
         return CartItem.objects.filter(cart=cart)
 
+    
     def perform_create(self, serializer):
-        """
-        Associates the cart item with the authenticated user's cart.
-        """
+        # Ensure that each user has their own cart when adding a product
         cart, created = Cart.objects.get_or_create(user=self.request.user)
-        serializer.save(cart=cart)
-
-    def perform_update(self, serializer):
-        """
-        Ensures the cart item belongs to the authenticated user's cart when updating.
-        """
-        cart, created = Cart.objects.get_or_create(user=self.request.user)
-        serializer.save(cart=cart)
+        
+        # Ensure the CartItem is associated with the correct cart
+        serializer.save(cart=cart)  # Pass the cart here to avoid needing it in the request
 
 # =============================================================================
 # Order and OrderItem ViewSets
 # =============================================================================
 
+# Order ViewSet
 class OrderViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing orders.
@@ -203,25 +212,38 @@ class OrderViewSet(viewsets.ModelViewSet):
         """
         return Order.objects.filter(user=self.request.user)
 
+    
     def perform_create(self, serializer):
+        # Ensure that each user has their own cart when adding a product
+        cart, created = Cart.objects.get_or_create(user=self.request.user)
+        
+        # Ensure the CartItem is associated with the correct cart
+        cart_item = serializer.save()
+        cart_item.cart = cart  # Set the cart before saving the CartItem
+        cart_item.save()
+
+
         """
         Automatically sets the user to the authenticated user when creating an order.
         """
         serializer.save(user=self.request.user)
 
-    @action(detail=True, methods=['patch'])
-    def update_status(self, request, pk=None):
-        """
-        Custom action to update the status of an order.
-        """
-        order = self.get_object()
-        status = request.data.get('status')
-        if status in dict(Order.STATUS_CHOICES):
-            order.status = status
-            order.save()
-            return Response({'status': 'Order status updated', 'new_status': order.status})
-        return Response({'error': 'Invalid status'}, status=400)
+        @action(detail=True, methods=['patch'])
+        def update_status(self, request, pk=None):
+            """
+            Custom action to update the status of an order.
+            """
+            order = self.get_object()
+            status = request.data.get('status')
+            if status in dict(Order.STATUS_CHOICES):
+                order.status = status
+                order.save()
+                return Response({'status': 'Order status updated', 'new_status': order.status})
+            return Response({'error': 'Invalid status'}, status=400)
 
+# =============================================================================
+
+# OrderItem ViewSet
 class OrderItemViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing items within an order.
@@ -235,7 +257,17 @@ class OrderItemViewSet(viewsets.ModelViewSet):
         """
         return OrderItem.objects.filter(order__user=self.request.user)
 
+    
     def perform_create(self, serializer):
+        # Ensure that each user has their own cart when adding a product
+        cart, created = Cart.objects.get_or_create(user=self.request.user)
+        
+        # Ensure the CartItem is associated with the correct cart
+        cart_item = serializer.save()
+        cart_item.cart = cart  # Set the cart before saving the CartItem
+        cart_item.save()
+
+
         """
         Ensures that the order item is added to the authenticated user's order.
         """
@@ -243,3 +275,5 @@ class OrderItemViewSet(viewsets.ModelViewSet):
         if order.user != self.request.user:
             raise PermissionDenied("You cannot add items to someone else's order.")
         serializer.save()
+
+# =============================================================================
