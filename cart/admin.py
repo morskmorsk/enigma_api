@@ -1,6 +1,7 @@
 from django.contrib import admin
-from .models import Cart, CartItem, Department, Location, Order, OrderItem, Product, UserProfile
+from .models import Cart, CartItem, Department, Location, Order, OrderItem, Product, UserProfile, Device
 
+# =================================================================================================
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
@@ -8,6 +9,8 @@ class UserProfileAdmin(admin.ModelAdmin):
     search_fields = ['user__username', 'phone_number', 'carrier']
     list_filter = ['phone_number']
     list_per_page = 10
+
+# =================================================================================================
 
 @admin.register(Location)
 class LocationAdmin(admin.ModelAdmin):
@@ -18,6 +21,7 @@ class LocationAdmin(admin.ModelAdmin):
     date_hierarchy = 'created_at'
     ordering = ['name']
 
+# =================================================================================================
 
 @admin.register(Department)
 class DepartmentAdmin(admin.ModelAdmin):
@@ -28,6 +32,7 @@ class DepartmentAdmin(admin.ModelAdmin):
     date_hierarchy = 'created_at'
     ordering = ['name']
 
+# =================================================================================================
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
@@ -48,8 +53,8 @@ class ProductAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         return qs.select_related('location', 'department')
 
+# =================================================================================================
 
-# /////////////////////////////////////////////////////////////////////////////////////////////
 @admin.register(Cart)
 class CartAdmin(admin.ModelAdmin):
     list_display = ['user', 'created_at', 'updated_at']
@@ -63,6 +68,7 @@ class CartAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         return qs.select_related('user')
 
+# =================================================================================================
 
 @admin.register(CartItem)
 class CartItemAdmin(admin.ModelAdmin):
@@ -82,6 +88,7 @@ class CartItemAdmin(admin.ModelAdmin):
     def get_item_name(self, obj):
         return obj.get_item_name()
     get_item_name.short_description = 'Item'            
+# =================================================================================================
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
@@ -96,6 +103,7 @@ class OrderAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         return qs.select_related('user')
 
+# =================================================================================================
 
 @admin.register(OrderItem)
 class OrderItemAdmin(admin.ModelAdmin):
@@ -109,4 +117,26 @@ class OrderItemAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.select_related('order__user', 'product')
-    
+
+# =================================================================================================
+
+@admin.register(Device)
+class DeviceAdmin(admin.ModelAdmin):
+    list_display = ['owner', 'name', 'device_model', 'imei', 'serial_number', 'location', 'department', 'created_at', 'updated_at']
+    search_fields = ['owner__username', 'name', 'device_model', 'imei', 'serial_number']
+    list_filter = ['created_at', 'location', 'department']
+    list_per_page = 10
+    date_hierarchy = 'created_at'
+    ordering = ['owner__username', 'name', 'device_model']
+    readonly_fields = ['created_at', 'updated_at']
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj:
+            return ['created_at', 'updated_at']
+        return []
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related('owner', 'location', 'department')
+
+# =================================================================================================
