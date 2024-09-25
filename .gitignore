@@ -308,3 +308,10 @@ media/products/valid_image_qxn1UdY.jpg
 cart.zip
 enigma_api_project.zip
 backend.zip
+.DS_Store
+cart/.DS_Store
+cart/tests/.DS_Store
+media/devices/device_place_holder.webp
+media/products/repair_tXMWWA9.webp
+media/products/repair2.webp
+.DS_Store
