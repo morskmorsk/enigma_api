@@ -153,11 +153,12 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
 }
 
-# CORS_ALLOWED_ORIGINS = [
-#     # 'http://localhost:4200',
-# ]
 # Allow all origins temporarily
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:4200',
+    # Add other origins if necessary
+]
 
 
 SALES_TAX_RATE = 0.09  # 9% tax rate
