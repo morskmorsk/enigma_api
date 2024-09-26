@@ -77,6 +77,7 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'price', 'description', 'image', 'barcode',
             'location', 'department', 'is_available', 'on_hand', 'cost',
+            'discount_amount', 'discount_percentage', 'sale_start', 'sale_end',
             'created_at', 'updated_at'
         ]
 
@@ -100,6 +101,7 @@ class DeviceSerializer(serializers.ModelSerializer):
             'id', 'name', 'device_model', 'repair_price', 'location', 'department',
             'imei', 'serial_number', 'owner', 'image', 'description', 'barcode',
             'defect', 'notes', 'carrier', 'estimated_value', 'passcode',
+            'discount_amount', 'discount_percentage', 'sale_start', 'sale_end',
             'created_at', 'updated_at'
         ]
 
@@ -132,15 +134,13 @@ class CartItemSerializer(serializers.ModelSerializer):
         product = validated_data.get('product')
         device = validated_data.get('device')
 
-        # Determine the price based on product or device
         if product:
-            price = product.price
+            price = product.discounted_price
         elif device:
-            price = device.repair_price or Decimal('0.00')
+            price = device.discounted_repair_price
         else:
             raise serializers.ValidationError("Cannot determine price without product or device.")
 
-        # Set the price in validated data
         validated_data['price'] = price
         return super().create(validated_data)
 
@@ -164,10 +164,11 @@ class OrderItemSerializer(serializers.ModelSerializer):
     device = DeviceSerializer(read_only=True)
     product_id = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all(), source='product', write_only=True, required=False, allow_null=True)
     device_id = serializers.PrimaryKeyRelatedField(queryset=Device.objects.all(), source='device', write_only=True, required=False, allow_null=True)
+    tax_amount = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
 
     class Meta:
         model = OrderItem
-        fields = ['id', 'product', 'device', 'product_id', 'device_id', 'order', 'quantity', 'price']
+        fields = ['id', 'product', 'device', 'product_id', 'device_id', 'order', 'quantity', 'price', 'tax_amount']
 
     def validate(self, attrs):
         product = attrs.get('product')
@@ -186,7 +187,8 @@ class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, required=False)
     user = serializers.ReadOnlyField(source='user.user.username')
     total = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    total_tax = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
 
     class Meta:
         model = Order
-        fields = ['id', 'user', 'status', 'total', 'items', 'created_at', 'updated_at']
+        fields = ['id', 'user', 'status', 'total', 'total_tax', 'items', 'created_at', 'updated_at']

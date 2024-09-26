@@ -2,7 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from .models import (
     UserProfile, Location, Department, Product, Device, Cart, CartItem, Order, OrderItem
 )
@@ -15,7 +15,6 @@ from django.contrib.auth.models import User
 from decimal import Decimal
 from rest_framework.views import APIView
 
-# Helper to assign cart to the user
 def assign_cart_to_user(user_profile):
     cart, created = Cart.objects.get_or_create(user=user_profile)
     return cart
@@ -128,13 +127,12 @@ class CartItemViewSet(viewsets.ModelViewSet):
         product = serializer.validated_data.get('product')
         device = serializer.validated_data.get('device')
 
-        # Determine price
         if product:
-            price = product.price
+            price = product.discounted_price
         elif device:
-            price = device.repair_price or Decimal('0.00')
+            price = device.discounted_repair_price
         else:
-            raise serializers.ValidationError("Cannot determine price without product or device.")
+            raise ValidationError("Cannot determine price without product or device.")
 
         serializer.save(cart=cart, price=price)
 
@@ -152,10 +150,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         profile = get_user_profile(self.request)
         order = serializer.save(user=profile)
-        # Calculate total
-        total = sum(item.price * item.quantity for item in order.items.all())
-        order.total = total
-        order.save()
+        # The order total and tax are updated automatically when OrderItems are added
 
     @action(detail=False, methods=['post'])
     def place_order(self, request):
@@ -166,16 +161,16 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         order = Order.objects.create(user=profile, status='pending')
         for cart_item in cart.items.all():
-            OrderItem.objects.create(
+            order_item = OrderItem.objects.create(
                 order=order,
                 product=cart_item.product,
                 device=cart_item.device,
                 quantity=cart_item.quantity,
                 price=cart_item.effective_price,
             )
-        # Calculate total
-        order.total = sum(item.price * item.quantity for item in order.items.all())
-        order.save()
+            # Tax calculation is handled in OrderItem's save method
+
+        # Order total and tax are updated automatically
         # Clear the cart
         cart.items.all().delete()
         serializer = self.get_serializer(order)
@@ -197,4 +192,15 @@ class OrderItemViewSet(viewsets.ModelViewSet):
         order = serializer.validated_data['order']
         if order.user != profile:
             raise PermissionDenied("You cannot add items to someone else's order.")
-        serializer.save()
+
+        product = serializer.validated_data.get('product')
+        device = serializer.validated_data.get('device')
+
+        if product:
+            price = product.discounted_price
+        elif device:
+            price = device.discounted_repair_price
+        else:
+            raise ValidationError("Cannot determine price without product or device.")
+
+        serializer.save(price=price)

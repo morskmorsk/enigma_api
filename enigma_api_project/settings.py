@@ -157,3 +157,6 @@ SIMPLE_JWT = {
 # ]
 # Allow all origins temporarily
 CORS_ALLOW_ALL_ORIGINS = True
+
+
+SALES_TAX_RATE = 0.09  # 9% tax rate
