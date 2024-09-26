@@ -1,17 +1,17 @@
-# factories.py
-
 import factory
+from decimal import Decimal
 from django.contrib.auth.models import User
 from django.utils import timezone
-
-from cart.models import (
+from .models import (
     UserProfile,
     Location,
     Department,
     Product,
     Device,
     Cart,
-    CartItem
+    CartItem,
+    Order,
+    OrderItem
 )
 
 # =============================================================================
@@ -24,13 +24,12 @@ class UserFactory(factory.django.DjangoModelFactory):
     """
     class Meta:
         model = User
-        skip_postgeneration_save = True  # Skip the extra save call after post-generation
         django_get_or_create = ('username',)
 
     username = factory.Faker('user_name')
     email = factory.Faker('email')
 
-    # Password needs to be set using set_password to hash it correctly
+    # Set and save the password
     password = factory.PostGenerationMethodCall('set_password', 'password')
 
 
@@ -59,9 +58,6 @@ class LocationFactory(factory.django.DjangoModelFactory):
 
     name = factory.Faker('company')
     description = factory.Faker('paragraph')
-    created_at = factory.LazyFunction(timezone.now)
-    updated_at = factory.LazyFunction(timezone.now)
-
 
 class DepartmentFactory(factory.django.DjangoModelFactory):
     """
@@ -73,8 +69,6 @@ class DepartmentFactory(factory.django.DjangoModelFactory):
     name = factory.Faker('word')
     description = factory.Faker('paragraph')
     is_taxable = factory.Faker('boolean')
-    created_at = factory.LazyFunction(timezone.now)
-    updated_at = factory.LazyFunction(timezone.now)
 
 # =============================================================================
 # Product and Device Factories
@@ -91,15 +85,12 @@ class ProductFactory(factory.django.DjangoModelFactory):
     price = factory.Faker('pydecimal', left_digits=4, right_digits=2, positive=True)
     description = factory.Faker('paragraph')
     image = factory.django.ImageField(color='blue')
-    barcode = factory.Faker('ean13')  # Generates a fake 13-digit barcode
+    barcode = factory.Faker('ean13')
     location = factory.SubFactory(LocationFactory)
     department = factory.SubFactory(DepartmentFactory)
     is_available = factory.Faker('boolean')
     on_hand = factory.Faker('random_int', min=0, max=100)
     cost = factory.Faker('pydecimal', left_digits=3, right_digits=2, positive=True)
-    created_at = factory.LazyFunction(timezone.now)
-    updated_at = factory.LazyFunction(timezone.now)
-
 
 class DeviceFactory(factory.django.DjangoModelFactory):
     """
@@ -109,13 +100,13 @@ class DeviceFactory(factory.django.DjangoModelFactory):
         model = Device
 
     name = factory.Faker('word')
-    owner = factory.SubFactory(UserFactory)
+    owner = factory.SubFactory(UserProfileFactory)
     device_model = factory.Faker('word')
     repair_price = factory.Faker('pydecimal', left_digits=4, right_digits=2, positive=True)
     description = factory.Faker('paragraph')
     image = factory.django.ImageField(color='red')
     barcode = factory.Faker('ean13')
-    imei = factory.Faker('numerify', text='###############')  # Generates a 15-digit IMEI
+    imei = factory.Faker('numerify', text='###############')  # 15-digit IMEI
     serial_number = factory.Faker('ean13')
     location = factory.SubFactory(LocationFactory)
     department = factory.SubFactory(DepartmentFactory)
@@ -124,8 +115,6 @@ class DeviceFactory(factory.django.DjangoModelFactory):
     carrier = factory.Faker('company')
     estimated_value = factory.Faker('pydecimal', left_digits=3, right_digits=2, positive=True)
     passcode = factory.Faker('password')
-    created_at = factory.LazyFunction(timezone.now)
-    updated_at = factory.LazyFunction(timezone.now)
 
 # =============================================================================
 # Cart and CartItem Factories
@@ -138,10 +127,7 @@ class CartFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Cart
 
-    user = factory.SubFactory(UserFactory)
-    created_at = factory.LazyFunction(timezone.now)
-    updated_at = factory.LazyFunction(timezone.now)
-
+    user = factory.SubFactory(UserProfileFactory)
 
 class CartItemFactory(factory.django.DjangoModelFactory):
     """
@@ -156,9 +142,6 @@ class CartItemFactory(factory.django.DjangoModelFactory):
     cart = factory.SubFactory(CartFactory)
     quantity = factory.Faker('random_int', min=1, max=5)
     override_price = None
-    created_at = factory.LazyFunction(timezone.now)
-    updated_at = factory.LazyFunction(timezone.now)
-
 
 class CartItemWithProductFactory(CartItemFactory):
     """
@@ -169,7 +152,7 @@ class CartItemWithProductFactory(CartItemFactory):
 
     product = factory.SubFactory(ProductFactory)
     device = None  # Ensure device is None
-
+    price = factory.LazyAttribute(lambda obj: obj.product.price)
 
 class CartItemWithDeviceFactory(CartItemFactory):
     """
@@ -180,3 +163,32 @@ class CartItemWithDeviceFactory(CartItemFactory):
 
     device = factory.SubFactory(DeviceFactory)
     product = None  # Ensure product is None
+    price = factory.LazyAttribute(lambda obj: obj.device.repair_price or Decimal('0.00'))
+
+# =============================================================================
+# Order and OrderItem Factories
+# =============================================================================
+
+class OrderFactory(factory.django.DjangoModelFactory):
+    """
+    Factory for creating Order instances.
+    """
+    class Meta:
+        model = Order
+
+    user = factory.SubFactory(UserProfileFactory)
+    status = 'pending'
+    total = Decimal('0.00')
+
+class OrderItemFactory(factory.django.DjangoModelFactory):
+    """
+    Factory for creating OrderItem instances.
+    """
+    class Meta:
+        model = OrderItem
+
+    order = factory.SubFactory(OrderFactory)
+    product = factory.SubFactory(ProductFactory)
+    device = None
+    quantity = factory.Faker('random_int', min=1, max=5)
+    price = factory.LazyAttribute(lambda obj: obj.product.price)

@@ -24,6 +24,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('A user with that username already exists.')
         return value
 
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError('A user with that email already exists.')
+        return value
+
     def validate_monthly_payment(self, value):
         if value is not None and value < 5:
             raise serializers.ValidationError('Minimum monthly payment must be greater than $5.00.')
@@ -34,11 +39,18 @@ class UserProfileSerializer(serializers.ModelSerializer):
         password = validated_data.pop('password')
         email = validated_data.pop('email')
         user = User.objects.create_user(username=username, password=password, email=email)
-        user_profile = UserProfile.objects.get(user=user)
+        user_profile, created = UserProfile.objects.get_or_create(user=user)
         for attr, value in validated_data.items():
             setattr(user_profile, attr, value)
         user_profile.save()
         return user_profile
+
+    def update(self, instance, validated_data):
+        user_data = {
+            'email': validated_data.pop('email', instance.user.email),
+        }
+        User.objects.filter(pk=instance.user.pk).update(**user_data)
+        return super().update(instance, validated_data)
 
 # =============================================================================
 # Location Serializer
@@ -117,7 +129,6 @@ class CartItemSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        cart = validated_data.get('cart')
         product = validated_data.get('product')
         device = validated_data.get('device')
 
@@ -149,19 +160,32 @@ class CartSerializer(serializers.ModelSerializer):
 # OrderItem Serializer
 # =============================================================================
 class OrderItemSerializer(serializers.ModelSerializer):
-    product_id = serializers.ReadOnlyField(source='product.id')
-    device_id = serializers.ReadOnlyField(source='device.id')
+    product = ProductSerializer(read_only=True)
+    device = DeviceSerializer(read_only=True)
+    product_id = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all(), source='product', write_only=True, required=False, allow_null=True)
+    device_id = serializers.PrimaryKeyRelatedField(queryset=Device.objects.all(), source='device', write_only=True, required=False, allow_null=True)
 
     class Meta:
         model = OrderItem
-        fields = ['id', 'product_id', 'device_id', 'order', 'quantity', 'price']
+        fields = ['id', 'product', 'device', 'product_id', 'device_id', 'order', 'quantity', 'price']
+
+    def validate(self, attrs):
+        product = attrs.get('product')
+        device = attrs.get('device')
+
+        if not product and not device:
+            raise serializers.ValidationError("Either 'product_id' or 'device_id' must be provided.")
+        if product and device:
+            raise serializers.ValidationError("Only one of 'product_id' or 'device_id' can be provided.")
+        return attrs
 
 # =============================================================================
 # Order Serializer
 # =============================================================================
 class OrderSerializer(serializers.ModelSerializer):
-    items = OrderItemSerializer(many=True, read_only=True)
+    items = OrderItemSerializer(many=True, required=False)
     user = serializers.ReadOnlyField(source='user.user.username')
+    total = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
 
     class Meta:
         model = Order

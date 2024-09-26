@@ -194,7 +194,6 @@ class CartItem(models.Model):
         ordering = ['id']
 
     def clean(self):
-        super().clean()
         if not self.product and not self.device:
             raise ValidationError('Either product or device must be set.')
         if self.product and self.device:
@@ -239,7 +238,7 @@ class Order(models.Model):
     )
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    total = models.DecimalField(max_digits=10, decimal_places=2)
+    total = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
    
@@ -270,7 +269,6 @@ class OrderItem(models.Model):
         ordering = ['order__id']
 
     def clean(self):
-        super().clean()
         if not self.product and not self.device:
             raise ValidationError('Either product or device must be set.')
         if self.product and self.device:

@@ -13,6 +13,7 @@ from .serializers import (
 )
 from django.contrib.auth.models import User
 from decimal import Decimal
+from rest_framework.views import APIView
 
 # Helper to assign cart to the user
 def assign_cart_to_user(user_profile):
@@ -26,12 +27,12 @@ def get_user_profile(request):
         raise PermissionDenied("User profile does not exist.")
 
 # =============================================================================
-# Signup ViewSet
+# Signup View
 # =============================================================================
-class SignupViewSet(viewsets.ViewSet):
+class SignupView(APIView):
     permission_classes = [AllowAny]
 
-    def create(self, request):
+    def post(self, request):
         serializer = UserProfileSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -52,20 +53,6 @@ class UserProfileViewSet(viewsets.ModelViewSet):
         if self.request.user.is_staff:
             return UserProfile.objects.all()
         return UserProfile.objects.filter(user=self.request.user)
-
-    def update(self, request, *args, **kwargs):
-        user_profile = self.get_object()
-        user = user_profile.user
-
-        user.email = request.data.get('email', user.email)
-        user.save()
-
-        user_profile.phone_number = request.data.get('phone_number', user_profile.phone_number)
-        user_profile.carrier = request.data.get('carrier', user_profile.carrier)
-        user_profile.monthly_payment = request.data.get('monthly_payment', user_profile.monthly_payment)
-        user_profile.save()
-
-        return Response({'status': 'profile updated successfully'})
 
     def destroy(self, request, *args, **kwargs):
         return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
@@ -164,7 +151,35 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         profile = get_user_profile(self.request)
-        serializer.save(user=profile)
+        order = serializer.save(user=profile)
+        # Calculate total
+        total = sum(item.price * item.quantity for item in order.items.all())
+        order.total = total
+        order.save()
+
+    @action(detail=False, methods=['post'])
+    def place_order(self, request):
+        profile = get_user_profile(request)
+        cart = assign_cart_to_user(profile)
+        if not cart.items.exists():
+            return Response({'detail': 'Cart is empty.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        order = Order.objects.create(user=profile, status='pending')
+        for cart_item in cart.items.all():
+            OrderItem.objects.create(
+                order=order,
+                product=cart_item.product,
+                device=cart_item.device,
+                quantity=cart_item.quantity,
+                price=cart_item.effective_price,
+            )
+        # Calculate total
+        order.total = sum(item.price * item.quantity for item in order.items.all())
+        order.save()
+        # Clear the cart
+        cart.items.all().delete()
+        serializer = self.get_serializer(order)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 # =============================================================================
 # OrderItem ViewSet
