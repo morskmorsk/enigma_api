@@ -40,7 +40,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'cart',
+    # 'cart',
+    'cart.apps.CartConfig',  # Ensure you reference your app's AppConfig
     'rest_framework',
     'debug_toolbar',  # Add this line
     'drf_spectacular',  # Add this line
@@ -160,3 +161,5 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 
 SALES_TAX_RATE = 0.09  # 9% tax rate
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
