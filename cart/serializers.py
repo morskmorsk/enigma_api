@@ -10,35 +10,31 @@ from decimal import Decimal
 # UserProfile Serializer
 # =============================================================================
 class UserProfileSerializer(serializers.ModelSerializer):
-    user = serializers.PrimaryKeyRelatedField(read_only=True)
-    username = serializers.CharField(write_only=True)
-    password = serializers.CharField(write_only=True, required=True)
-    email = serializers.EmailField(write_only=True, required=True)
+    # Instead of just the user ID, we now include the full user object
+    user = serializers.SerializerMethodField()
 
     class Meta:
         model = UserProfile
-        fields = ['id', 'user', 'username', 'password', 'email', 'phone_number', 'carrier', 'monthly_payment']
+        fields = ['id', 'user', 'phone_number', 'carrier', 'monthly_payment']
 
-    def validate_username(self, value):
-        if User.objects.filter(username=value).exists():
-            raise serializers.ValidationError('A user with that username already exists.')
-        return value
-
-    def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError('A user with that email already exists.')
-        return value
-
-    def validate_monthly_payment(self, value):
-        if value is not None and value < 5:
-            raise serializers.ValidationError('Minimum monthly payment must be greater than $5.00.')
-        return value
+    def get_user(self, obj):
+        """This method will include the relevant fields from the User model."""
+        return {
+            'id': obj.user.id,
+            'username': obj.user.username,
+            'email': obj.user.email,
+        }
 
     def create(self, validated_data):
+        # Extract user-related fields from the data
         username = validated_data.pop('username')
         password = validated_data.pop('password')
         email = validated_data.pop('email')
+
+        # Create the User
         user = User.objects.create_user(username=username, password=password, email=email)
+
+        # Create or update the UserProfile
         user_profile, created = UserProfile.objects.get_or_create(user=user)
         for attr, value in validated_data.items():
             setattr(user_profile, attr, value)
@@ -46,10 +42,13 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return user_profile
 
     def update(self, instance, validated_data):
+        # Update the associated User model details
         user_data = {
             'email': validated_data.pop('email', instance.user.email),
         }
         User.objects.filter(pk=instance.user.pk).update(**user_data)
+
+        # Update the UserProfile instance
         return super().update(instance, validated_data)
 
 # =============================================================================
