@@ -5,51 +5,49 @@ from .models import (
     Device, Cart, CartItem, Order, OrderItem
 )
 from decimal import Decimal
+from django.db import IntegrityError
+from django.core.exceptions import ValidationError
+
+
 
 # =============================================================================
 # UserProfile Serializer
 # =============================================================================
 class UserProfileSerializer(serializers.ModelSerializer):
-    # Instead of just the user ID, we now include the full user object
     user = serializers.SerializerMethodField()
+    username = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True)
 
     class Meta:
         model = UserProfile
-        fields = ['id', 'user', 'phone_number', 'carrier', 'monthly_payment']
+        fields = ['id', 'user', 'username', 'password', 'phone_number', 'carrier', 'monthly_payment']
 
     def get_user(self, obj):
-        """This method will include the relevant fields from the User model."""
         return {
             'id': obj.user.id,
             'username': obj.user.username,
-            'email': obj.user.email,
         }
+
+    def validate_username(self, value):
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("A user with that username already exists. Please log in instead.")
+        return value
+
+    def validate_phone_number(self, value):
+        if not value.isdigit() or len(value) != 10:
+            raise serializers.ValidationError("Please enter a valid phone number.")
+        return value
 
     def create(self, validated_data):
-        # Extract user-related fields from the data
         username = validated_data.pop('username')
         password = validated_data.pop('password')
-        email = validated_data.pop('email')
 
-        # Create the User
-        user = User.objects.create_user(username=username, password=password, email=email)
-
-        # Create or update the UserProfile
-        user_profile, created = UserProfile.objects.get_or_create(user=user)
-        for attr, value in validated_data.items():
-            setattr(user_profile, attr, value)
-        user_profile.save()
+        try:
+            user = User.objects.create_user(username=username, password=password)
+            user_profile = UserProfile.objects.create(user=user, **validated_data)
+        except IntegrityError:
+            raise serializers.ValidationError("A user with that username already exists. Please log in instead.")
         return user_profile
-
-    def update(self, instance, validated_data):
-        # Update the associated User model details
-        user_data = {
-            'email': validated_data.pop('email', instance.user.email),
-        }
-        User.objects.filter(pk=instance.user.pk).update(**user_data)
-
-        # Update the UserProfile instance
-        return super().update(instance, validated_data)
 
 # =============================================================================
 # Location Serializer
@@ -112,8 +110,8 @@ class CartItemSerializer(serializers.ModelSerializer):
     device = DeviceSerializer(read_only=True)
     product_id = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all(), source='product', write_only=True, required=False, allow_null=True)
     device_id = serializers.PrimaryKeyRelatedField(queryset=Device.objects.all(), source='device', write_only=True, required=False, allow_null=True)
-    price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
-    effective_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    price = serializers.DecimalField(max_digits=10, decimal_places=2)
+    effective_price = serializers.DecimalField(max_digits=10, decimal_places=2)
 
     class Meta:
         model = CartItem

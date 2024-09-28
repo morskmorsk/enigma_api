@@ -1,4 +1,4 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, serializers
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -14,11 +14,19 @@ from .serializers import (
 from django.contrib.auth.models import User
 from decimal import Decimal
 from rest_framework.views import APIView
+from django.db import IntegrityError
 
+import logging
+
+# =============================================================================
+logger = logging.getLogger(__name__)
+
+# =============================================================================
 def assign_cart_to_user(user_profile):
     cart, created = Cart.objects.get_or_create(user=user_profile)
     return cart
 
+# =============================================================================
 def get_user_profile(request):
     try:
         return request.user.profile
@@ -28,14 +36,76 @@ def get_user_profile(request):
 # =============================================================================
 # Signup View
 # =============================================================================
+from rest_framework.authtoken.models import Token
+
 class SignupView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = UserProfileSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        try:
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            user = serializer.instance.user
+            token, _ = Token.objects.get_or_create(user=user)
+            return Response({'token': token.key}, status=status.HTTP_201_CREATED)
+        except IntegrityError:
+            # Log and handle duplicate username error
+            logger.warning(f"IntegrityError: Username already exists: {request.data.get('username')}")
+            return Response({"username": "A user with that username already exists. Please log in instead."}, status=status.HTTP_400_BAD_REQUEST)
+
+        except ValidationError as e:
+            logger.error(f"ValidationError: {e.detail}")
+            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+
+        except KeyError as e:
+            logger.error(f"KeyError: Missing field - {str(e)}")
+            return Response({"error": f"Missing field: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            logger.error(f"Unexpected error during signup: {str(e)}", exc_info=True)
+            return Response({"error": f"Unexpected error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# =============================================================================
+class UserProfileSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+    username = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = UserProfile
+        fields = ['id', 'user', 'username', 'password', 'phone_number', 'carrier', 'monthly_payment']
+
+    def get_user(self, obj):
+        return {
+            'id': obj.user.id,
+            'username': obj.user.username,
+        }
+
+    def validate_username(self, value):
+        # Ensure the username is unique
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("A user with that username already exists. Please log in instead.")
+        return value
+
+    def validate_phone_number(self, value):
+        # Add phone number validation logic (if needed)
+        if not value.isdigit() or len(value) != 10:
+            raise serializers.ValidationError("Please enter a valid phone number.")
+        return value
+
+    def create(self, validated_data):
+        # Extract user-related fields
+        username = validated_data.pop('username')
+        password = validated_data.pop('password')
+
+        # Create the User object with hashed password
+        user = User.objects.create_user(username=username, password=password)
+
+        # Create the UserProfile associated with the user
+        user_profile = UserProfile.objects.create(user=user, **validated_data)
+
+        return user_profile
 
 # =============================================================================
 # UserProfile ViewSet
@@ -175,6 +245,13 @@ class OrderViewSet(viewsets.ModelViewSet):
         cart.items.all().delete()
         serializer = self.get_serializer(order)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['get'])
+    def user(self, request):
+        profile = get_user_profile(request)
+        orders = Order.objects.filter(user=profile)
+        serializer = self.get_serializer(orders, many=True)
+        return Response(serializer.data)
 
 # =============================================================================
 # OrderItem ViewSet
