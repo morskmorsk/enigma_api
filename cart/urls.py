@@ -19,6 +19,7 @@ router.register(r'order-items', views.OrderItemViewSet, basename='orderitem')
 urlpatterns = [
     path('', include(router.urls)),  # Include the router-generated URLs
     path('api-token-auth/', obtain_auth_token),
+    path('signup/', views.SignupView.as_view(), name='signup'),
 ]
 
 if settings.DEBUG:
