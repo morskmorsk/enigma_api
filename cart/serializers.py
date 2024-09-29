@@ -23,10 +23,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
         fields = ['id', 'user', 'username', 'password', 'phone_number', 'carrier', 'monthly_payment']
 
     def get_user(self, obj):
-        return {
-            'id': obj.user.id,
-            'username': obj.user.username,
-        }
+        if obj.user:
+            return {
+                'id': obj.user.id,
+                'username': obj.user.username,
+            }
+        return None
 
     def validate_username(self, value):
         if User.objects.filter(username=value).exists():
@@ -108,14 +110,42 @@ class DeviceSerializer(serializers.ModelSerializer):
 class CartItemSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
     device = DeviceSerializer(read_only=True)
-    product_id = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all(), source='product', write_only=True, required=False, allow_null=True)
-    device_id = serializers.PrimaryKeyRelatedField(queryset=Device.objects.all(), source='device', write_only=True, required=False, allow_null=True)
-    price = serializers.DecimalField(max_digits=10, decimal_places=2)
-    effective_price = serializers.DecimalField(max_digits=10, decimal_places=2)
+    product_id = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.all(),
+        source='product',
+        write_only=True,
+        required=False,
+        allow_null=True
+    )
+    device_id = serializers.PrimaryKeyRelatedField(
+        queryset=Device.objects.all(),
+        source='device',
+        write_only=True,
+        required=False,
+        allow_null=True
+    )
+    price = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        read_only=True
+    )
+    effective_price = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        read_only=True
+    )
+    cart = serializers.PrimaryKeyRelatedField(
+        read_only=True
+    )
 
     class Meta:
         model = CartItem
-        fields = ['id', 'cart', 'product', 'device', 'product_id', 'device_id', 'quantity', 'price', 'override_price', 'effective_price', 'created_at', 'updated_at']
+        fields = [
+            'id', 'cart', 'product', 'device',
+            'product_id', 'device_id',
+            'quantity', 'price', 'override_price',
+            'effective_price', 'created_at', 'updated_at'
+        ]
 
     def validate(self, attrs):
         product = attrs.get('product')
@@ -128,6 +158,18 @@ class CartItemSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        user = self.context['request'].user
+
+        if not user.is_authenticated:
+            raise serializers.ValidationError("User must be authenticated to add items to the cart.")
+
+        try:
+            cart = Cart.objects.get(user=user.userprofile)
+        except Cart.DoesNotExist:
+            cart = Cart.objects.create(user=user.userprofile)
+
+        validated_data['cart'] = cart
+
         product = validated_data.get('product')
         device = validated_data.get('device')
 
@@ -139,6 +181,8 @@ class CartItemSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Cannot determine price without product or device.")
 
         validated_data['price'] = price
+        validated_data['effective_price'] = price  # Adjust as per business logic
+
         return super().create(validated_data)
 
 # =============================================================================

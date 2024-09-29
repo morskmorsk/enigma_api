@@ -1,4 +1,4 @@
-from rest_framework import viewsets, status, serializers
+from rest_framework import viewsets, status, serializers, permissions
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -184,28 +184,18 @@ class CartViewSet(viewsets.ModelViewSet):
 # CartItem ViewSet
 # =============================================================================
 class CartItemViewSet(viewsets.ModelViewSet):
+    queryset = CartItem.objects.all()
     serializer_class = CartItemSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        profile = get_user_profile(self.request)
-        return CartItem.objects.filter(cart__user=profile)
+        # Restrict access to cart items belonging to the authenticated user's cart
+        return CartItem.objects.filter(cart__user=self.request.user.userprofile)
 
     def perform_create(self, serializer):
-        profile = get_user_profile(self.request)
-        cart = assign_cart_to_user(profile)
-        product = serializer.validated_data.get('product')
-        device = serializer.validated_data.get('device')
-
-        if product:
-            price = product.discounted_price
-        elif device:
-            price = device.discounted_repair_price
-        else:
-            raise ValidationError("Cannot determine price without product or device.")
-
-        serializer.save(cart=cart, price=price)
-
+        serializer.context['request'] = self.request  # Pass the request to the serializer
+        serializer.save()
+        
 # =============================================================================
 # Order ViewSet
 # =============================================================================
