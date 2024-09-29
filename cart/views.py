@@ -190,7 +190,7 @@ class CartItemViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # Restrict access to cart items belonging to the authenticated user's cart
-        return CartItem.objects.filter(cart__user=self.request.user.userprofile)
+        return CartItem.objects.filter(cart__user=self.request.user.profile)
 
     def perform_create(self, serializer):
         serializer.context['request'] = self.request  # Pass the request to the serializer

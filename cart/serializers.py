@@ -164,9 +164,9 @@ class CartItemSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("User must be authenticated to add items to the cart.")
 
         try:
-            cart = Cart.objects.get(user=user.userprofile)
+            cart = Cart.objects.get(user=user.profile)
         except Cart.DoesNotExist:
-            cart = Cart.objects.create(user=user.userprofile)
+            cart = Cart.objects.create(user=user.profile)
 
         validated_data['cart'] = cart
 
@@ -181,7 +181,7 @@ class CartItemSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Cannot determine price without product or device.")
 
         validated_data['price'] = price
-        validated_data['effective_price'] = price  # Adjust as per business logic
+        # validated_data['effective_price'] = price  # Adjust as per business logic
 
         return super().create(validated_data)
 
