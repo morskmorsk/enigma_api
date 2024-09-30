@@ -67,47 +67,6 @@ class SignupView(APIView):
             return Response({"error": f"Unexpected error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # =============================================================================
-class UserProfileSerializer(serializers.ModelSerializer):
-    user = serializers.SerializerMethodField()
-    username = serializers.CharField(write_only=True)
-    password = serializers.CharField(write_only=True)
-
-    class Meta:
-        model = UserProfile
-        fields = ['id', 'user', 'username', 'password', 'phone_number', 'carrier', 'monthly_payment']
-
-    def get_user(self, obj):
-        return {
-            'id': obj.user.id,
-            'username': obj.user.username,
-        }
-
-    def validate_username(self, value):
-        # Ensure the username is unique
-        if User.objects.filter(username=value).exists():
-            raise serializers.ValidationError("A user with that username already exists. Please log in instead.")
-        return value
-
-    def validate_phone_number(self, value):
-        # Add phone number validation logic (if needed)
-        if not value.isdigit() or len(value) != 10:
-            raise serializers.ValidationError("Please enter a valid phone number.")
-        return value
-
-    def create(self, validated_data):
-        # Extract user-related fields
-        username = validated_data.pop('username')
-        password = validated_data.pop('password')
-
-        # Create the User object with hashed password
-        user = User.objects.create_user(username=username, password=password)
-
-        # Create the UserProfile associated with the user
-        user_profile = UserProfile.objects.create(user=user, **validated_data)
-
-        return user_profile
-
-# =============================================================================
 # UserProfile ViewSet
 # =============================================================================
 class UserProfileViewSet(viewsets.ModelViewSet):
