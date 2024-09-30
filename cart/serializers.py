@@ -30,11 +30,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
             }
         return None
 
-    def validate_username(self, value):
-        if User.objects.filter(username=value).exists():
-            raise serializers.ValidationError("A user with that username already exists. Please log in instead.")
-        return value
-
     def validate_phone_number(self, value):
         if not value.isdigit() or len(value) != 10:
             raise serializers.ValidationError("Please enter a valid phone number.")
@@ -45,12 +40,20 @@ class UserProfileSerializer(serializers.ModelSerializer):
         password = validated_data.pop('password')
 
         try:
+            # Create the User
             user = User.objects.create_user(username=username, password=password)
-            user_profile = UserProfile.objects.create(user=user, **validated_data)
-        except IntegrityError:
-            raise serializers.ValidationError("A user with that username already exists. Please log in instead.")
-        return user_profile
 
+            # Check if a UserProfile already exists for this user
+            if UserProfile.objects.filter(user=user).exists():
+                raise serializers.ValidationError({"user_profile": "A profile already exists for this user."})
+
+            # Create the UserProfile
+            user_profile = UserProfile.objects.create(user=user, **validated_data)
+
+        except IntegrityError:
+            raise serializers.ValidationError({"username": "A user with that username already exists. Please log in instead."})
+        
+        return user_profile
 # =============================================================================
 # Location Serializer
 # =============================================================================

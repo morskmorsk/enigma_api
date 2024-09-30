@@ -1,4 +1,4 @@
-from rest_framework import viewsets, status, serializers, permissions
+from rest_framework import viewsets, status, permissions
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -15,6 +15,7 @@ from django.contrib.auth.models import User
 from decimal import Decimal
 from rest_framework.views import APIView
 from django.db import IntegrityError
+from rest_framework.authtoken.models import Token
 
 import logging
 
@@ -36,23 +37,24 @@ def get_user_profile(request):
 # =============================================================================
 # Signup View
 # =============================================================================
-from rest_framework.authtoken.models import Token
-
 class SignupView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = UserProfileSerializer(data=request.data)
         try:
+            # Validate and save the serializer
             serializer.is_valid(raise_exception=True)
             serializer.save()
+
+            # Get the user instance from the serializer
             user = serializer.instance.user
+
+            # Generate or retrieve the token for the user
             token, _ = Token.objects.get_or_create(user=user)
+
+            # Return the token and a success response
             return Response({'token': token.key}, status=status.HTTP_201_CREATED)
-        except IntegrityError:
-            # Log and handle duplicate username error
-            logger.warning(f"IntegrityError: Username already exists: {request.data.get('username')}")
-            return Response({"username": "A user with that username already exists. Please log in instead."}, status=status.HTTP_400_BAD_REQUEST)
 
         except ValidationError as e:
             logger.error(f"ValidationError: {e.detail}")
