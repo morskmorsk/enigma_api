@@ -42,31 +42,11 @@ class SignupView(APIView):
 
     def post(self, request):
         serializer = UserProfileSerializer(data=request.data)
-        try:
-            # Validate and save the serializer
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-
-            # Get the user instance from the serializer
-            user = serializer.instance.user
-
-            # Generate or retrieve the token for the user
-            token, _ = Token.objects.get_or_create(user=user)
-
-            # Return the token and a success response
-            return Response({'token': token.key}, status=status.HTTP_201_CREATED)
-
-        except ValidationError as e:
-            logger.error(f"ValidationError: {e.detail}")
-            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
-
-        except KeyError as e:
-            logger.error(f"KeyError: Missing field - {str(e)}")
-            return Response({"error": f"Missing field: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
-
-        except Exception as e:
-            logger.error(f"Unexpected error during signup: {str(e)}", exc_info=True)
-            return Response({"error": f"Unexpected error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        user = serializer.instance.user
+        token, _ = Token.objects.get_or_create(user=user)
+        return Response({'token': token.key}, status=status.HTTP_201_CREATED)
 
 # =============================================================================
 # UserProfile ViewSet
