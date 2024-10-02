@@ -1,3 +1,4 @@
+from venv import logger
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import (
@@ -39,27 +40,25 @@ class UserProfileSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         # Pop user data from validated_data to update the user separately
         user_data = validated_data.pop('user', {})
-        
+        logger.info(f"User data: {user_data}")
         # Update UserProfile fields (e.g., phone_number, carrier, etc.)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         
-        # Update the related User object fields
+        # Update the related User object fields, if provided
         user = instance.user
-        user.first_name = user_data.get('first_name', user.first_name)
-        user.last_name = user_data.get('last_name', user.last_name)
-        user.email = user_data.get('email', user.email)
+        if 'first_name' in user_data:
+            user.first_name = user_data['first_name']
+        if 'last_name' in user_data:
+            user.last_name = user_data['last_name']
+        if 'email' in user_data:
+            user.email = user_data['email']
+        
+        # Save both the User and UserProfile objects
         user.save()  # Save the updated User fields
-
-        # Save the updated UserProfile instance
-        instance.save()
+        instance.save()  # Save the updated UserProfile fields
 
         return instance
-
-    # def validate_phone_number(self, value):
-    #     if not value.isdigit() or len(value) != 10:
-    #         raise serializers.ValidationError("Please enter a valid phone number.")
-    #     return value
 
     def create(self, validated_data):
         username = validated_data.pop('username')
