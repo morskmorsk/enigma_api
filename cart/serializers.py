@@ -1,3 +1,6 @@
+# ******************************************************************************************
+# serializers.py provides the serializers for the models in the cart app.
+# ******************************************************************************************
 from venv import logger
 from rest_framework import serializers
 from django.contrib.auth.models import User
@@ -10,76 +13,102 @@ from django.db import IntegrityError
 from django.core.exceptions import ValidationError
 
 
+# =============================================================================
+# User Serializer
+# =============================================================================
+class UserSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=False)  # Make password optional during updates
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'password', 'first_name', 'last_name', 'email']
+        read_only_fields = ['id', 'username']  # Prevent updates to 'id' and 'username'
+
+    def create(self, validated_data):
+        """
+        Create a new User instance. Password is required during creation.
+        """
+        password = validated_data.pop('password', None)
+        if not password:
+            raise serializers.ValidationError({"password": "Password is required."})
+
+        try:
+            user = User(**validated_data)
+            user.set_password(password)  # Hash the password
+            user.save()
+        except IntegrityError:
+            raise serializers.ValidationError({
+                "username": "A user with that username already exists. Please log in instead."
+            })
+
+        return user
+
+    def update(self, instance, validated_data):
+        """
+        Update an existing User instance. Password is optional.
+        """
+        password = validated_data.pop('password', None)
+
+        # Update other User fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        # Update password if provided and not empty
+        if password:
+            instance.set_password(password)
+
+        instance.save()
+        return instance
+
 
 # =============================================================================
 # UserProfile Serializer
 # =============================================================================
 class UserProfileSerializer(serializers.ModelSerializer):
-    user = serializers.SerializerMethodField()
-    first_name = serializers.CharField(required=False)
-    last_name = serializers.CharField(required=False)
-    email = serializers.EmailField(required=False)
-    username = serializers.CharField(write_only=True)
-    password = serializers.CharField(write_only=True)
+    user = UserSerializer()
 
     class Meta:
         model = UserProfile
-        fields = ['id', 'user', 'first_name' , 'last_name', 'email' , 'username', 'password', 'phone_number', 'carrier', 'monthly_payment']
-
-    def get_user(self, obj):
-        if obj.user:
-            return {
-                'id': obj.user.id,
-                'first_name': obj.user.first_name,
-                'last_name': obj.user.last_name,
-                'email': obj.user.email,
-                'username': obj.user.username,
-            }
-        return None
-
-    def update(self, instance, validated_data):
-        # Pop user data from validated_data to update the user separately
-        user_data = validated_data.pop('user', {})
-        logger.info(f"User data: {user_data}")
-        # Update UserProfile fields (e.g., phone_number, carrier, etc.)
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        
-        # Update the related User object fields, if provided
-        user = instance.user
-        if 'first_name' in user_data:
-            user.first_name = user_data['first_name']
-        if 'last_name' in user_data:
-            user.last_name = user_data['last_name']
-        if 'email' in user_data:
-            user.email = user_data['email']
-        
-        # Save both the User and UserProfile objects
-        user.save()  # Save the updated User fields
-        instance.save()  # Save the updated UserProfile fields
-
-        return instance
+        fields = [
+            'id', 'user', 'phone_number', 'carrier', 'monthly_payment',
+        ]
+        read_only_fields = ['id']
 
     def create(self, validated_data):
-        username = validated_data.pop('username')
-        password = validated_data.pop('password')
+        """
+        Create a new UserProfile instance along with the nested User instance.
+        """
+        user_data = validated_data.pop('user')
 
-        try:
-            # Create the User
-            user = User.objects.create_user(username=username, password=password)
+        # Use the nested UserSerializer to create a User instance
+        user_serializer = UserSerializer(data=user_data)
+        user_serializer.is_valid(raise_exception=True)
+        user = user_serializer.save()
 
-            # Retrieve the automatically created UserProfile
-            user_profile = user.profile
-
-            # Update the UserProfile with remaining validated data
-            for attr, value in validated_data.items():
-                setattr(user_profile, attr, value)
-            user_profile.save()
-
-        except IntegrityError:
-            raise serializers.ValidationError({"username": "A user with that username already exists. Please log in instead."})
-
+        # Create the UserProfile instance
+        user_profile = UserProfile.objects.create(user=user, **validated_data)
         return user_profile
+
+    def update(self, instance, validated_data):
+        """
+        Update an existing UserProfile instance along with the nested User instance.
+        """
+        user_data = validated_data.pop('user', {})
+
+        # Update UserProfile fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        # Update User fields using the nested serializer
+        if user_data:
+            user_serializer = UserSerializer(instance=instance.user, data=user_data, partial=True)
+            user_serializer.is_valid(raise_exception=True)
+            user_serializer.save()
+
+        # Save the UserProfile instance
+        instance.save()
+        return instance
+
 
 # =============================================================================
 # Location Serializer
@@ -263,3 +292,4 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ['id', 'user', 'status', 'total', 'total_tax', 'items', 'created_at', 'updated_at']
+# ******************************************************************************************

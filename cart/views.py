@@ -1,3 +1,6 @@
+# ******************************************************************************************
+# views.py file for the cart app
+# ******************************************************************************************
 from rest_framework import viewsets, status, permissions
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
@@ -9,7 +12,7 @@ from .models import (
 from .serializers import (
     UserProfileSerializer, LocationSerializer, DepartmentSerializer,
     ProductSerializer, DeviceSerializer, CartSerializer, CartItemSerializer,
-    OrderSerializer, OrderItemSerializer
+    OrderSerializer, OrderItemSerializer, UserSerializer
 )
 from django.contrib.auth.models import User
 from decimal import Decimal
@@ -18,6 +21,8 @@ from django.db import IntegrityError
 from rest_framework.authtoken.models import Token
 
 import logging
+
+from cart import models
 
 # =============================================================================
 logger = logging.getLogger(__name__)
@@ -48,10 +53,22 @@ class SignupView(APIView):
         token, _ = Token.objects.get_or_create(user=user)
         return Response({'token': token.key}, status=status.HTTP_201_CREATED)
 
+# ******************************************************************************************
+# class UserViewSet
+# ******************************************************************************************
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return User.objects.filter(id=self.request.user.id)
+
 # =============================================================================
 # UserProfile ViewSet
 # =============================================================================
 class UserProfileViewSet(viewsets.ModelViewSet):
+    queryset = UserProfile.objects.all()
     serializer_class = UserProfileSerializer
 
     def get_permissions(self):
@@ -212,3 +229,4 @@ class OrderItemViewSet(viewsets.ModelViewSet):
             raise ValidationError("Cannot determine price without product or device.")
 
         serializer.save(price=price)
+# =============================================================================

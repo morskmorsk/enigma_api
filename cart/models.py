@@ -1,3 +1,6 @@
+# ******************************************************************************************
+# models.py file for the cart app
+# ******************************************************************************************
 from decimal import Decimal
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -378,3 +381,4 @@ class OrderItem(models.Model):
         else:
             self.tax_amount = Decimal('0.00')
         super(OrderItem, self).save(update_fields=['tax_amount'])
+# ******************************************************************************************

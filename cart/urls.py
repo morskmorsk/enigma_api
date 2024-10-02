@@ -1,3 +1,6 @@
+# ******************************************************************************************
+# urls.py file for the cart app
+# ******************************************************************************************
 from django.conf import settings
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
@@ -15,6 +18,7 @@ router.register(r'cart', views.CartViewSet, basename='cart')
 router.register(r'cart-items', views.CartItemViewSet, basename='cartitem')
 router.register(r'orders', views.OrderViewSet, basename='order')
 router.register(r'order-items', views.OrderItemViewSet, basename='orderitem')
+router.register(r'users', views.UserViewSet, basename='user')
 # =============================================================================
 urlpatterns = [
     path('', include(router.urls)),  # Include the router-generated URLs
@@ -31,3 +35,4 @@ if settings.DEBUG:
     urlpatterns += [
         path('__debug__/', include(debug_toolbar.urls)),
     ]
+# ******************************************************************************************
