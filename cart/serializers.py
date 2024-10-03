@@ -78,7 +78,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         """
         Create a new UserProfile instance along with the nested User instance.
         """
-        user_data = validated_data.pop('user')
+        user_data = validated_data.pop('user', {})
 
         # Use the nested UserSerializer to create a User instance
         user_serializer = UserSerializer(data=user_data)
