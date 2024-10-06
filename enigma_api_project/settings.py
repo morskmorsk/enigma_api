@@ -169,3 +169,5 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 DEBUG = True
 
 AUTH_USER_MODEL = 'auth.User'  # Using Django's default User model
+
+# =============================================================================
