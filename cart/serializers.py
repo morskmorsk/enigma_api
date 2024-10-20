@@ -10,13 +10,19 @@ from decimal import Decimal
 from django.db import IntegrityError
 from django.core.exceptions import ValidationError
 
+# =============================================================================
+# User Serializer
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'first_name', 'last_name', 'email', 'username']
 
 
 # =============================================================================
 # UserProfile Serializer
 # =============================================================================
 class UserProfileSerializer(serializers.ModelSerializer):
-    user = serializers.SerializerMethodField()
+    user = UserSerializer(read_only=True)
     first_name = serializers.CharField(required=False)
     last_name = serializers.CharField(required=False)
     email = serializers.EmailField(required=False)
@@ -58,10 +64,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
         return instance
 
-    # def validate_phone_number(self, value):
-    #     if not value.isdigit() or len(value) != 10:
-    #         raise serializers.ValidationError("Please enter a valid phone number.")
-    #     return value
+    def validate_phone_number(self, value):
+        if not value.isdigit() or len(value) != 10:
+            raise serializers.ValidationError("Please enter a valid phone number.")
+        return value
 
     def create(self, validated_data):
         username = validated_data.pop('username')
