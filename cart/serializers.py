@@ -77,13 +77,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
             # Create the User
             user = User.objects.create_user(username=username, password=password)
 
-            # Retrieve the automatically created UserProfile
-            user_profile = user.profile
-
-            # Update the UserProfile with remaining validated data
-            for attr, value in validated_data.items():
-                setattr(user_profile, attr, value)
-            user_profile.save()
+            # Create the UserProfile associated with this user
+            user_profile = UserProfile.objects.create(user=user, **validated_data)
 
         except IntegrityError:
             raise serializers.ValidationError({"username": "A user with that username already exists. Please log in instead."})

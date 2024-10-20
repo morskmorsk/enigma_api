@@ -33,7 +33,7 @@ def assign_cart_to_user(user_profile):
 def get_user_profile(request):
     try:
         return request.user.profile
-    except UserProfile.DoesNotExist:
+    except (UserProfile.DoesNotExist, AttributeError):
         raise PermissionDenied("User profile does not exist.")
 
 # =============================================================================
