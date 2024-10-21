@@ -11,7 +11,7 @@ from .models import (
 from .serializers import (
     UserProfileSerializer, LocationSerializer, DepartmentSerializer,
     ProductSerializer, DeviceSerializer, CartSerializer, CartItemSerializer,
-    OrderSerializer, OrderItemSerializer
+    OrderSerializer, OrderItemSerializer, UserRegistrationSerializer
 )
 from django.contrib.auth.models import User
 from decimal import Decimal
@@ -43,10 +43,11 @@ class SignupView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        serializer = UserProfileSerializer(data=request.data)
+        serializer = UserRegistrationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        user = serializer.instance.user
+        user = serializer.save()
+        # Create associated UserProfile if needed
+        UserProfile.objects.create(user=user)
         token, _ = Token.objects.get_or_create(user=user)
         return Response({'token': token.key}, status=status.HTTP_201_CREATED)
 

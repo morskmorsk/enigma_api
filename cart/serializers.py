@@ -17,73 +17,66 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'first_name', 'last_name', 'email', 'username']
 
+# =============================================================================
+# User Registration Serializer
+class UserRegistrationSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
+    username = serializers.CharField()
+
+    class Meta:
+        model = User
+        fields = ['username', 'password']
+
+    def create(self, validated_data):
+        username = validated_data['username']
+        password = validated_data['password']
+        user = User.objects.create_user(username=username, password=password)
+        return user
+
+# =============================================================================
 
 # =============================================================================
 # UserProfile Serializer
 # =============================================================================
 class UserProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
-    first_name = serializers.CharField(required=False)
-    last_name = serializers.CharField(required=False)
-    email = serializers.EmailField(required=False)
-    username = serializers.CharField(write_only=True)
-    password = serializers.CharField(write_only=True)
+    first_name = serializers.CharField(write_only=True, required=False)
+    last_name = serializers.CharField(write_only=True, required=False)
+    email = serializers.EmailField(write_only=True, required=False)
 
     class Meta:
         model = UserProfile
-        fields = ['id', 'user', 'first_name' , 'last_name', 'email' , 'username', 'password', 'phone_number', 'carrier', 'monthly_payment']
-
-    def get_user(self, obj):
-        if obj.user:
-            return {
-                'id': obj.user.id,
-                'first_name': obj.user.first_name,
-                'last_name': obj.user.last_name,
-                'email': obj.user.email,
-                'username': obj.user.username,
-            }
-        return None
+        fields = [
+            'id', 'user', 'first_name', 'last_name', 'email',
+            'phone_number', 'carrier', 'monthly_payment',
+        ]
 
     def update(self, instance, validated_data):
-        # Pop user data from validated_data to update the user separately
-        user_data = validated_data.pop('user', {})
-        
-        # Update UserProfile fields (e.g., phone_number, carrier, etc.)
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        
-        # Update the related User object fields
-        user = instance.user
-        user.first_name = user_data.get('first_name', user.first_name)
-        user.last_name = user_data.get('last_name', user.last_name)
-        user.email = user_data.get('email', user.email)
-        user.save()  # Save the updated User fields
+        # Update User fields
+        try:
+            user_data = {
+                'first_name': validated_data.pop('first_name', instance.user.first_name),
+                'last_name': validated_data.pop('last_name', instance.user.last_name),
+                'email': validated_data.pop('email', instance.user.email),
+            }
 
-        # Save the updated UserProfile instance
-        instance.save()
+            # Only update if the value is provided (not None or empty)
+            for attr, value in user_data.items():
+                if value:  # Only update if value is present
+                    setattr(instance.user, attr, value)
 
-        return instance
+            instance.user.save()
+
+            # Update UserProfile fields
+            return super().update(instance, validated_data)
+
+        except IntegrityError as e:
+            raise serializers.ValidationError({"detail": str(e)})
 
     def validate_phone_number(self, value):
         if not value.isdigit() or len(value) != 10:
             raise serializers.ValidationError("Please enter a valid phone number.")
         return value
-
-    def create(self, validated_data):
-        username = validated_data.pop('username')
-        password = validated_data.pop('password')
-
-        try:
-            # Create the User
-            user = User.objects.create_user(username=username, password=password)
-
-            # Create the UserProfile associated with this user
-            user_profile = UserProfile.objects.create(user=user, **validated_data)
-
-        except IntegrityError:
-            raise serializers.ValidationError({"username": "A user with that username already exists. Please log in instead."})
-
-        return user_profile
 
 # =============================================================================
 # Location Serializer
