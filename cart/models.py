@@ -382,12 +382,4 @@ class OrderItem(models.Model):
             self.tax_amount = Decimal('0.00')
         super(OrderItem, self).save(update_fields=['tax_amount'])
 
-
-# =============================================================================
-# Signal to create a UserProfile when a User is created
-# =============================================================================
-@receiver(post_save, sender=User)
-def create_user_profile(sender, instance, created, **kwargs):
-    if created:
-        UserProfile.objects.create(user=instance)
 # =============================================================================
