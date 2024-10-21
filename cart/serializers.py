@@ -22,18 +22,29 @@ class UserSerializer(serializers.ModelSerializer):
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     username = serializers.CharField()
+    phone_number = serializers.CharField(required=False, allow_blank=True)
+    carrier = serializers.CharField(required=False, allow_blank=True)
+    monthly_payment = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
 
     class Meta:
         model = User
-        fields = ['username', 'password']
+        fields = ['username', 'password', 'phone_number', 'carrier', 'monthly_payment']
 
     def create(self, validated_data):
-        username = validated_data['username']
-        password = validated_data['password']
+        username = validated_data.pop('username')
+        password = validated_data.pop('password')
+        phone_number = validated_data.pop('phone_number', None)
+        carrier = validated_data.pop('carrier', None)
+        monthly_payment = validated_data.pop('monthly_payment', None)
         user = User.objects.create_user(username=username, password=password)
+        # Create associated UserProfile with additional fields
+        UserProfile.objects.create(
+            user=user,
+            phone_number=phone_number,
+            carrier=carrier,
+            monthly_payment=monthly_payment
+        )
         return user
-
-# =============================================================================
 
 # =============================================================================
 # UserProfile Serializer
