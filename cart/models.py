@@ -372,12 +372,15 @@ class OrderItem(models.Model):
             is_taxable = True
         elif self.device and self.device.department and self.device.department.is_taxable:
             is_taxable = True
-
+        
         if is_taxable:
-            tax_rate = SALES_TAX_RATE
+            # Convert tax_rate to Decimal
+            tax_rate = Decimal(SALES_TAX_RATE)  # Assuming SALES_TAX_RATE is a float
+            # Ensure price and quantity are Decimal types
             self.tax_amount = (self.price * self.quantity) * tax_rate
         else:
             self.tax_amount = Decimal('0.00')
+        
         super(OrderItem, self).save(update_fields=['tax_amount'])
 
 # =============================================================================
