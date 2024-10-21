@@ -66,7 +66,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(write_only=True, required=False)
     last_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
     email = serializers.EmailField(write_only=True, required=False, allow_blank=True)
-    phone_number = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    phone_number = serializers.CharField(required=False, allow_blank=True)
     carrier = serializers.CharField(required=False, allow_blank=True)
     monthly_payment = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
 
@@ -78,6 +78,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
         ]
 
     def update(self, instance, validated_data):
+        # Log the incoming validated data
+        print(f"Updating UserProfile with data: {validated_data}")
+
         # Update User fields
         user_data = {
             'first_name': validated_data.pop('first_name', instance.user.first_name),
@@ -85,16 +88,21 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'email': validated_data.pop('email', instance.user.email),
         }
 
-        # Only update if the value is provided (not None or empty)
+        # Only update if the value is not None (allow empty strings)
         for attr, value in user_data.items():
-            if value is not None and value != '':
+            if value is not None:
                 setattr(instance.user, attr, value)
 
         instance.user.save()
 
         # Update UserProfile fields
-        return super().update(instance, validated_data)
+        for attr, value in validated_data.items():
+            if value is not None:
+                setattr(instance, attr, value)
 
+        instance.save()
+        return instance
+    
     def validate_phone_number(self, value):
         # Allow blank phone number
         if value == '':

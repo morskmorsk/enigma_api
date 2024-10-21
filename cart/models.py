@@ -17,7 +17,7 @@ SALES_TAX_RATE = getattr(settings, 'SALES_TAX_RATE', Decimal('0.07'))  # Default
 # =============================================================================
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    phone_number = models.CharField(max_length=20, blank=True, null=True, default='1234567890')
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
     carrier = models.CharField(max_length=100, blank=True, null=True)
     monthly_payment = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
 
