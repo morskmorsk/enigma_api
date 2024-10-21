@@ -44,13 +44,15 @@ class SignupView(APIView):
 
     def post(self, request):
         serializer = UserRegistrationSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        # Create associated UserProfile if needed
-        UserProfile.objects.create(user=user)
-        token, _ = Token.objects.get_or_create(user=user)
-        return Response({'token': token.key}, status=status.HTTP_201_CREATED)
-
+        if serializer.is_valid():
+            try:
+                user = serializer.save()
+                token, _ = Token.objects.get_or_create(user=user)
+                return Response({'token': token.key}, status=status.HTTP_201_CREATED)
+            except IntegrityError as e:
+                return Response({'detail': 'User profile already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
 # =============================================================================
 # UserProfile ViewSet
 # =============================================================================

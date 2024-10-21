@@ -9,6 +9,7 @@ from .models import (
 from decimal import Decimal
 from django.db import IntegrityError
 from django.core.exceptions import ValidationError
+from rest_framework.validators import UniqueValidator
 
 # =============================================================================
 # User Serializer
@@ -21,7 +22,9 @@ class UserSerializer(serializers.ModelSerializer):
 # User Registration Serializer
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
-    username = serializers.CharField()
+    username = serializers.CharField(
+        validators=[UniqueValidator(queryset=User.objects.all())]
+    )
     phone_number = serializers.CharField(required=False, allow_blank=True)
     carrier = serializers.CharField(required=False, allow_blank=True)
     monthly_payment = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
@@ -36,14 +39,23 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         phone_number = validated_data.pop('phone_number', None)
         carrier = validated_data.pop('carrier', None)
         monthly_payment = validated_data.pop('monthly_payment', None)
+
         user = User.objects.create_user(username=username, password=password)
-        # Create associated UserProfile with additional fields
-        UserProfile.objects.create(
+
+        # Check if a UserProfile already exists for this user
+        user_profile, created = UserProfile.objects.get_or_create(
             user=user,
-            phone_number=phone_number,
-            carrier=carrier,
-            monthly_payment=monthly_payment
+            defaults={
+                'phone_number': phone_number,
+                'carrier': carrier,
+                'monthly_payment': monthly_payment,
+            }
         )
+
+        # If the profile was not created, you could log a warning or handle it accordingly
+        if not created:
+            raise serializers.ValidationError("A profile for this user already exists.")
+
         return user
 
 # =============================================================================
@@ -52,8 +64,11 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     first_name = serializers.CharField(write_only=True, required=False)
-    last_name = serializers.CharField(write_only=True, required=False)
-    email = serializers.EmailField(write_only=True, required=False)
+    last_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    email = serializers.EmailField(write_only=True, required=False, allow_blank=True)
+    phone_number = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    carrier = serializers.CharField(required=False, allow_blank=True)
+    monthly_payment = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
 
     class Meta:
         model = UserProfile
@@ -64,27 +79,26 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         # Update User fields
-        try:
-            user_data = {
-                'first_name': validated_data.pop('first_name', instance.user.first_name),
-                'last_name': validated_data.pop('last_name', instance.user.last_name),
-                'email': validated_data.pop('email', instance.user.email),
-            }
+        user_data = {
+            'first_name': validated_data.pop('first_name', instance.user.first_name),
+            'last_name': validated_data.pop('last_name', instance.user.last_name),
+            'email': validated_data.pop('email', instance.user.email),
+        }
 
-            # Only update if the value is provided (not None or empty)
-            for attr, value in user_data.items():
-                if value:  # Only update if value is present
-                    setattr(instance.user, attr, value)
+        # Only update if the value is provided (not None or empty)
+        for attr, value in user_data.items():
+            if value is not None and value != '':
+                setattr(instance.user, attr, value)
 
-            instance.user.save()
+        instance.user.save()
 
-            # Update UserProfile fields
-            return super().update(instance, validated_data)
-
-        except IntegrityError as e:
-            raise serializers.ValidationError({"detail": str(e)})
+        # Update UserProfile fields
+        return super().update(instance, validated_data)
 
     def validate_phone_number(self, value):
+        # Allow blank phone number
+        if value == '':
+            return value
         if not value.isdigit() or len(value) != 10:
             raise serializers.ValidationError("Please enter a valid phone number.")
         return value
